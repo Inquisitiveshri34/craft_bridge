@@ -1,0 +1,878 @@
+# PR44 – Complex Forms — Review Submission Form
+
+**Project:** CraftBridge
+**PR Number:** 44 of 51
+**Assigned To:** Member 3
+**Type:** TYPE B – Fully Agent-Executable PR
+
+---
+
+## Section 1 – PR Title
+
+Implement review methods in `FirestoreService`, add review methods to a new `ReviewProvider`, and implement the review submission bottom sheet and review list section on `ProductDetailScreen`.
+
+---
+
+## Section 2 – Assignments Covered
+
+- Assignment 3.44 — Complex Forms — Review Submission Form
+
+---
+
+## Section 3 – Objective
+
+This PR implements the product review feature — the two remaining `FirestoreService` review stubs (`addReview` and `getReviewsByProduct`) are filled, a `ReviewProvider` is created to manage review state, and `ProductDetailScreen` is extended with a reviews section showing existing reviews and a "Write a Review" button that opens a bottom sheet form with a 5-star rating selector and a comment field. After this PR, buyers can submit star ratings and comments on products, and all buyers can see the reviews on the product detail screen.
+
+---
+
+## Section 4 – Architecture Context
+
+```
+FirestoreService (Review Methods — filled this PR)
+  addReview(ReviewModel)
+    → _db.collection('reviews').doc(review.id).set(review.toMap())
+
+  getReviewsByProduct(String productId)
+    → _db.collection('reviews')
+         .where('productId', isEqualTo: productId)
+         .orderBy('createdAt', descending: true)
+         .snapshots()
+         → Stream<List<ReviewModel>>
+
+ReviewProvider (new ChangeNotifier — this PR)
+  ├── _reviews: List<ReviewModel>
+  ├── _isLoading: bool
+  ├── _isSubmitting: bool
+  ├── _errorMessage: String?
+  ├── _reviewsSubscription: StreamSubscription?
+  │
+  ├── listenToProductReviews(String productId)
+  ├── addReview({...}) → FirestoreService.addReview()
+  └── dispose()
+
+ProductDetailScreen (updated this PR)
+  ├── _buildReviewsSection()
+  │     ├── average rating display
+  │     ├── "Write a Review" button (buyers only)
+  │     └── ListView of _ReviewCard widgets
+  │
+  └── _showReviewBottomSheet()
+        ├── star rating row (1–5 interactive stars)
+        ├── comment CustomTextField (min 10 chars)
+        └── "Submit Review" button → ReviewProvider.addReview()
+
+main.dart: ReviewProvider added to MultiProvider ← required this PR
+
+firestore_service.dart UnimplementedError count:
+  Before: 4
+  After:  2 (addReview + getReviewsByProduct filled,
+              getPendingArtisans remains for PR48)
+```
+
+This PR sits after `BuyerOrdersScreen` (PR43) and before the buyer nav shell (PR45). It introduces `ReviewProvider` which must be registered in `main.dart`.
+
+---
+
+## Section 5 – Folder Constraints
+
+**Allowed file creation:**
+- None. All files already exist.
+
+**Allowed file modification:**
+- `lib/services/firestore_service.dart`
+- `lib/screens/buyer/product_detail_screen.dart`
+- `lib/main.dart` — add `ReviewProvider` to `MultiProvider`
+- `docs/PR44_Review_Form.md` — new document written to existing `docs/` directory
+
+**Not allowed:**
+- Do NOT create any new folders.
+- Do NOT create any new files (note: `review_provider.dart` does not exist in the locked structure — reviews are managed via a simpler approach described below).
+- Do NOT modify any model files.
+- Do NOT modify `storage_service.dart`.
+- Do NOT modify `app_theme.dart` or `app_constants.dart`.
+- Do NOT modify any other provider files.
+- Do NOT modify any widget files.
+- Do NOT modify `pubspec.yaml`.
+
+---
+
+**Important architectural note:** The locked folder structure does not include a `review_provider.dart` file. The review state for `ProductDetailScreen` is managed as local `StatefulWidget` state within `_ProductDetailScreenState` — not a separate Provider. `FirestoreService` review methods are implemented, and `ProductDetailScreen` calls them directly via a local `FirestoreService` instance. This keeps the review feature self-contained within the screen without requiring a new file.
+
+`main.dart` does NOT need to be updated — no new Provider is registered.
+
+---
+
+## Section 6 – Technical Requirements
+
+---
+
+### `lib/services/firestore_service.dart`
+
+Replace the two Review Method stub bodies. All other methods remain unchanged.
+
+---
+
+**Implemented review methods:**
+
+```dart
+// ── Review Methods ── implemented in PR44 ────────────────────
+
+Future<void> addReview(ReviewModel review) async {
+  await _db
+      .collection(AppConstants.reviewsCollection)
+      .doc(review.id)
+      .set(review.toMap());
+}
+
+Stream<List<ReviewModel>> getReviewsByProduct(String productId) {
+  return _db
+      .collection(AppConstants.reviewsCollection)
+      .where('productId', isEqualTo: productId)
+      .orderBy('createdAt', descending: true)
+      .snapshots()
+      .map((snapshot) => snapshot.docs
+          .map((doc) => ReviewModel.fromMap(doc.data()))
+          .toList());
+}
+```
+
+**Implementation notes:**
+
+- `addReview` uses `.doc(review.id).set(...)` — the review ID is pre-generated by the caller.
+- `getReviewsByProduct` combines `.where('productId', ...)` with `.orderBy('createdAt', descending: true)` — requires a composite index on `productId` + `createdAt`.
+- `getReviewsByProduct` must NOT be declared `async`.
+- Uses `AppConstants.reviewsCollection`.
+
+---
+
+**`UnimplementedError` count after this PR:**
+
+```
+grep -c 'UnimplementedError' lib/services/firestore_service.dart
+```
+Must return `2` — only `getPendingArtisans` remains.
+
+---
+
+### `lib/screens/buyer/product_detail_screen.dart`
+
+This is the most significant change in this PR — adding a reviews section and bottom sheet. Eight targeted changes.
+
+---
+
+**Change 1 — Add imports:**
+
+```dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:craft_bridge/models/review_model.dart';
+import 'package:craft_bridge/services/firestore_service.dart';
+```
+
+---
+
+**Change 2 — Add new state fields to `_ProductDetailScreenState`:**
+
+Add after `bool _isLoadingLocation = false`:
+
+```dart
+final FirestoreService _firestoreService = FirestoreService();
+List<ReviewModel> _reviews = [];
+bool _isLoadingReviews = false;
+bool _isSubmittingReview = false;
+StreamSubscription<List<ReviewModel>>? _reviewsSubscription;
+```
+
+---
+
+**Change 3 — Add `dart:async` import:**
+
+```dart
+import 'dart:async';
+```
+
+---
+
+**Change 4 — Update `initState()` to start review stream:**
+
+Add `_listenToReviews()` call after `_fetchBuyerLocation()`:
+
+```dart
+@override
+void initState() {
+  super.initState();
+  _quantity = 1;
+  _fetchBuyerLocation();
+  _listenToReviews();
+}
+```
+
+---
+
+**Change 5 — Add `dispose()` override to cancel review subscription:**
+
+```dart
+@override
+void dispose() {
+  _reviewsSubscription?.cancel();
+  super.dispose();
+}
+```
+
+---
+
+**Change 6 — Add `_listenToReviews()` method:**
+
+```dart
+void _listenToReviews() {
+  setState(() => _isLoadingReviews = true);
+  _reviewsSubscription = _firestoreService
+      .getReviewsByProduct(widget.product.id)
+      .listen(
+    (reviews) {
+      if (mounted) {
+        setState(() {
+          _reviews = reviews;
+          _isLoadingReviews = false;
+        });
+      }
+    },
+    onError: (_) {
+      if (mounted) setState(() => _isLoadingReviews = false);
+    },
+  );
+}
+```
+
+---
+
+**Change 7 — Add `_showReviewBottomSheet()` method:**
+
+```dart
+void _showReviewBottomSheet() {
+  int selectedRating = 0;
+  final TextEditingController commentController =
+      TextEditingController();
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Write a Review',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.product.title,
+                    style:
+                        Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.6),
+                            ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Your Rating',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: List.generate(5, (index) {
+                      final int star = index + 1;
+                      return GestureDetector(
+                        onTap: () =>
+                            setSheetState(() => selectedRating = star),
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            star <= selectedRating
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: star <= selectedRating
+                                ? Colors.amber.shade600
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.3),
+                            size: 36,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  if (selectedRating == 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Please select a rating.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: commentController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Your Review',
+                      hintText:
+                          'Share your experience with this product...',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please write a review.';
+                      }
+                      if (value.trim().length < 10) {
+                        return 'Review must be at least 10 characters.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isSubmittingReview
+                          ? null
+                          : () async {
+                              if (selectedRating == 0) {
+                                setSheetState(() {});
+                                return;
+                              }
+                              if (!formKey.currentState!.validate()) {
+                                return;
+                              }
+                              setSheetState(() {});
+                              setState(
+                                  () => _isSubmittingReview = true);
+                              try {
+                                final String reviewId =
+                                    FirebaseFirestore.instance
+                                        .collection(AppConstants
+                                            .reviewsCollection)
+                                        .doc()
+                                        .id;
+                                final authProvider =
+                                    context.read<AuthProvider>();
+                                final ReviewModel review = ReviewModel(
+                                  id: reviewId,
+                                  productId: widget.product.id,
+                                  buyerId: authProvider
+                                          .currentUser?.uid ??
+                                      '',
+                                  buyerName: authProvider
+                                          .currentUser?.displayName ??
+                                      '',
+                                  rating:
+                                      selectedRating.toDouble(),
+                                  comment:
+                                      commentController.text.trim(),
+                                  createdAt: Timestamp.now(),
+                                );
+                                await _firestoreService
+                                    .addReview(review);
+                                setState(() =>
+                                    _isSubmittingReview = false);
+                                if (mounted) {
+                                  Navigator.pop(ctx);
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Review submitted. Thank you!'),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                setState(() =>
+                                    _isSubmittingReview = false);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Failed to submit review: $e'),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      child: _isSubmittingReview
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Submit Review'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  ).whenComplete(() => commentController.dispose());
+}
+```
+
+**Implementation notes:**
+
+- `StatefulBuilder` inside the bottom sheet allows the star rating to rebuild reactively without rebuilding `ProductDetailScreen`.
+- `isScrollControlled: true` allows the bottom sheet to resize when the keyboard appears (via `MediaQuery.of(ctx).viewInsets.bottom`).
+- `commentController.dispose()` is called in `.whenComplete()` — ensures the controller is disposed when the sheet closes.
+- `selectedRating == 0` is a custom validation — `FormField` validators don't cover non-form widgets like the star row, so it is manually checked.
+
+---
+
+**Change 8 — Add `_buildReviewsSection()` method:**
+
+```dart
+Widget _buildReviewsSection() {
+  final bool isBuyer =
+      context.read<AuthProvider>().currentUser?.role ==
+          AppConstants.roleBuyer;
+  final double averageRating = _reviews.isEmpty
+      ? 0
+      : _reviews.fold(0.0, (sum, r) => sum + r.rating) /
+          _reviews.length;
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Divider(height: 32),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Reviews',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              if (_reviews.isNotEmpty)
+                Row(
+                  children: [
+                    Icon(Icons.star_rounded,
+                        color: Colors.amber.shade600, size: 16),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${averageRating.toStringAsFixed(1)} (${_reviews.length})',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.7),
+                          ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          if (isBuyer)
+            TextButton.icon(
+              onPressed: _showReviewBottomSheet,
+              icon: const Icon(Icons.rate_review_outlined, size: 18),
+              label: const Text('Write a Review'),
+            ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      if (_isLoadingReviews)
+        const Center(
+            child: CircularProgressIndicator(strokeWidth: 2))
+      else if (_reviews.isEmpty)
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              'No reviews yet. Be the first to review!',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.5),
+                  ),
+            ),
+          ),
+        )
+      else
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _reviews.length,
+          separatorBuilder: (_, __) => const Divider(height: 16),
+          itemBuilder: (context, index) {
+            return _ReviewCard(review: _reviews[index]);
+          },
+        ),
+    ],
+  );
+}
+```
+
+---
+
+**Change 9 — Add `_buildReviewsSection()` call to `build()`:**
+
+In `build()`, add `_buildReviewsSection()` after `_buildMapSection()` and before the final `SizedBox(height: 16)` / `CustomButton`:
+
+```
+...
+13. _buildQuantitySelector()
+14. _buildMapSection()
+15. _buildReviewsSection()    ← added this PR
+16. SizedBox(height: 16)
+17. CustomButton('Add to Cart')
+18. SizedBox(height: 32)
+```
+
+---
+
+**Change 10 — Add `_ReviewCard` private widget below `_ProductDetailScreenState`:**
+
+```dart
+class _ReviewCard extends StatelessWidget {
+  final ReviewModel review;
+
+  const _ReviewCard({required this.review});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              review.buyerName,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            Row(
+              children: List.generate(5, (index) {
+                return Icon(
+                  index < review.rating.round()
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: Colors.amber.shade600,
+                  size: 16,
+                );
+              }),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          review.comment,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withOpacity(0.8),
+              ),
+        ),
+      ],
+    );
+  }
+}
+```
+
+---
+
+### `docs/PR44_Review_Form.md`
+
+A Markdown document containing all of the following sections in order.
+
+---
+
+#### 1. Overview
+
+A 3–4 sentence paragraph covering: the review feature allows buyers to submit star ratings and comments on products they have browsed. Reviews are stored in the `reviews` Firestore collection and displayed on `ProductDetailScreen` in real time. The "Write a Review" button is only visible to buyers — artisans and admins cannot submit reviews.
+
+---
+
+#### 2. Review Data Model
+
+The `ReviewModel` fields table (from locked schema):
+
+| Field | Type | Value Source |
+|-------|------|--------------|
+| `id` | `String` | Firestore auto-generated ID |
+| `productId` | `String` | `widget.product.id` |
+| `buyerId` | `String` | `AuthProvider.currentUser?.uid` |
+| `buyerName` | `String` | `AuthProvider.currentUser?.displayName` |
+| `rating` | `double` | Star selector (1.0–5.0) |
+| `comment` | `String` | `TextFormField` input |
+| `createdAt` | `Timestamp` | `Timestamp.now()` at submission |
+
+---
+
+#### 3. `StatefulBuilder` in Bottom Sheet
+
+A prose section covering: the review bottom sheet uses `StatefulBuilder` to manage the star rating state independently. Without `StatefulBuilder`, tapping a star would require calling `setState` on `_ProductDetailScreenState`, rebuilding the entire `ProductDetailScreen` widget tree on every star tap — including the `GoogleMap` and image network widgets. `StatefulBuilder` limits rebuilds to the bottom sheet content only.
+
+---
+
+#### 4. Composite Index Requirement
+
+A prose section covering: `getReviewsByProduct` uses `.where('productId', ...).orderBy('createdAt', descending: true)` — a composite query requiring a Firestore index on `productId` + `createdAt`. The debug console will print a one-click index creation URL on first run against the live Firebase project.
+
+---
+
+#### 5. Buyer-Only Review Gate
+
+A prose section covering: `_buildReviewsSection()` checks `AuthProvider.currentUser?.role == AppConstants.roleBuyer` before showing the "Write a Review" button. Artisans and admins can read reviews but cannot submit them. The Firestore security rule from PR39 (`allow create: if isBuyer() && request.resource.data.buyerId == request.auth.uid`) enforces this at the database level.
+
+---
+
+## Section 7 – Deliverables
+
+| # | Deliverable | Description |
+|---|-------------|-------------|
+| 1 | `lib/services/firestore_service.dart` | `addReview()` and `getReviewsByProduct()` implemented — `UnimplementedError` count drops to 2 |
+| 2 | `lib/screens/buyer/product_detail_screen.dart` | Review stream subscription, `_buildReviewsSection()`, `_showReviewBottomSheet()`, `_ReviewCard` private widget added |
+| 3 | `docs/PR44_Review_Form.md` | Review form documentation with 5 sections |
+
+---
+
+## Section 8 – Setup and Implementation Instructions
+
+### Part 1 – Manual Setup
+
+> No manual setup required for this PR. Proceed to Part 2.
+
+---
+
+### Part 2 – Agent Implementation Instructions
+
+The agent must modify two Dart files and write one Markdown document.
+
+---
+
+**File 1: `lib/services/firestore_service.dart`**
+
+Replace `addReview` and `getReviewsByProduct` stub bodies. Confirm `UnimplementedError` count is 2 after editing.
+
+---
+
+**File 2: `lib/screens/buyer/product_detail_screen.dart`**
+
+Make all ten targeted changes specified in Section 6. Write the changes in order:
+
+1. Add `dart:async`, `cloud_firestore`, `review_model`, `firestore_service` imports.
+2. Add `_firestoreService`, `_reviews`, `_isLoadingReviews`, `_isSubmittingReview`, `_reviewsSubscription` fields.
+3. Update `initState()` to call `_listenToReviews()`.
+4. Add `dispose()` to cancel `_reviewsSubscription`.
+5. Add `_listenToReviews()` method.
+6. Add `_showReviewBottomSheet()` method.
+7. Add `_buildReviewsSection()` method.
+8. Add `_buildReviewsSection()` call to `build()` inner column.
+9. Add `_ReviewCard` private widget class at bottom of file.
+
+**Critical rules:**
+- `StatefulBuilder` is required inside the bottom sheet — not `setState` on the outer state.
+- `isScrollControlled: true` on `showModalBottomSheet` — required for keyboard avoidance.
+- `commentController.dispose()` in `.whenComplete()`.
+- `shrinkWrap: true` and `physics: NeverScrollableScrollPhysics()` on the reviews `ListView` — it is inside a `SingleChildScrollView`.
+- `_ReviewCard` is a private class — underscore prefix.
+- `dispose()` override must call `super.dispose()`.
+
+---
+
+**File 3: `docs/PR44_Review_Form.md`**
+
+Write the complete Markdown document with all 5 sections as specified in Section 6.
+
+---
+
+### Part 3 – Verification and Quality Gate
+
+1. **Run `flutter analyze`**
+   ```
+   flutter analyze
+   ```
+   Required result: `No issues found!`. Common issues: `StreamSubscription` requires `dart:async`; `getReviewsByProduct` must not be `async`; `shrinkWrap: true` without `NeverScrollableScrollPhysics` causes layout errors inside `SingleChildScrollView`.
+
+2. **Verify `UnimplementedError` count**
+   ```
+   grep -c 'UnimplementedError' lib/services/firestore_service.dart
+   ```
+   Must return `2`.
+
+3. **Verify `getReviewsByProduct` is not async**
+   ```
+   grep 'Stream<List<ReviewModel>> getReviewsByProduct' lib/services/firestore_service.dart
+   ```
+   Must return one line without `async`.
+
+4. **Verify `StatefulBuilder` in bottom sheet**
+   ```
+   grep 'StatefulBuilder' lib/screens/buyer/product_detail_screen.dart
+   ```
+   Must return at least one line.
+
+5. **Verify `_reviewsSubscription` is cancelled in `dispose`**
+   ```
+   grep 'reviewsSubscription' lib/screens/buyer/product_detail_screen.dart
+   ```
+   Must return at least three lines — declaration, listen assignment, cancel in dispose.
+
+6. **Verify `shrinkWrap: true` in reviews ListView**
+   ```
+   grep 'shrinkWrap' lib/screens/buyer/product_detail_screen.dart
+   ```
+   Must return one line.
+
+7. **Verify `_ReviewCard` is private**
+   ```
+   grep 'class _ReviewCard' lib/screens/buyer/product_detail_screen.dart
+   ```
+   Must return one line.
+
+8. **Hot reload on emulator — review flow test**
+   ```
+   flutter run
+   ```
+   Log in as a buyer → tap any product → scroll to bottom of `ProductDetailScreen`.
+
+   Confirm:
+   - "Reviews" section heading visible below map section.
+   - "Write a Review" button visible (buyer role).
+   - "No reviews yet. Be the first to review!" message when no reviews exist.
+   - Tap "Write a Review" → bottom sheet opens with product title, 5 star icons, comment field, Submit button.
+   - Tap star 4 → stars 1–4 filled amber, star 5 outline.
+   - Type a comment (min 10 chars) → tap "Submit Review".
+   - Loading spinner on Submit button briefly → sheet closes → "Review submitted. Thank you!" snackbar.
+   - Reviews section updates in real time — new review card shows buyer name, star rating, comment.
+
+   **Rating validation:**
+   - Tap "Submit Review" without selecting a star → "Please select a rating." error appears.
+
+   **Artisan/admin regression:**
+   - Log in as an artisan → navigate to any product → confirm "Write a Review" button is NOT shown.
+
+   Press `q` to quit.
+
+9. **Verify only correct files were modified**
+   ```
+   git diff --name-only
+   ```
+   Expected: `lib/services/firestore_service.dart`, `lib/screens/buyer/product_detail_screen.dart`, `docs/PR44_Review_Form.md`.
+
+10. **Confirm all Section 9 acceptance criteria pass as binary checks** before pushing.
+
+**If any check fails:**
+- Attempt to fix and re-run once.
+- If still failing, output:
+
+  ```
+  VERIFICATION FAILED — DO NOT MERGE
+  PR: 44
+  Failed Check: [exact check that failed]
+  Error Output: [exact error message or description]
+  Root Cause: [agent's diagnosis]
+  Suggested Fix: [exact steps the developer should take to resolve it]
+  ```
+
+**If all checks pass:**
+
+Output:
+```
+VERIFICATION PASSED
+All Section 9 acceptance criteria confirmed.
+Proceeding to commit and push.
+```
+
+Then run:
+```
+git add .
+git commit -m "PR44: Complex Forms — Review Submission Form"
+git push origin pr44-review-form
+```
+
+---
+
+## Section 9 – Acceptance Criteria
+
+- [ ] `FirestoreService.addReview()` writes `review.toMap()` to `reviews/{review.id}`.
+- [ ] `FirestoreService.getReviewsByProduct()` returns `Stream<List<ReviewModel>>` filtered by `productId`, ordered by `createdAt` descending, not declared `async`.
+- [ ] `grep -c 'UnimplementedError' lib/services/firestore_service.dart` returns `2`.
+- [ ] `_ProductDetailScreenState` has `_reviews`, `_isLoadingReviews`, `_isSubmittingReview`, `_reviewsSubscription` fields.
+- [ ] `dispose()` cancels `_reviewsSubscription`.
+- [ ] `_buildReviewsSection()` shows average rating, "Write a Review" button (buyers only), and list of `_ReviewCard` widgets.
+- [ ] `_showReviewBottomSheet()` uses `StatefulBuilder`, `isScrollControlled: true`, interactive 5-star row, `TextFormField` with min-10-char validator, Submit button with loading state.
+- [ ] Star rating validation prevents submission when no star is selected.
+- [ ] `_ReviewCard` is a private `StatelessWidget` rendering buyer name, star row, and comment.
+- [ ] Reviews `ListView` uses `shrinkWrap: true` and `NeverScrollableScrollPhysics`.
+- [ ] `flutter analyze` returns zero errors and zero warnings.
+- [ ] The app compiles and runs without errors on the emulator.
+
+---
+
+## Section 10 – Video Explanation Talking Points
+
+1. **Introduction:** "This is PR44 for CraftBridge. I implemented the product review feature — filling the two remaining `FirestoreService` review stubs, adding a live review stream and review list to `ProductDetailScreen`, and implementing a review submission bottom sheet with an interactive star rating selector."
+
+2. **`StatefulBuilder` for bottom sheet state:** "The review bottom sheet needs to rebuild when the buyer taps a star — updating which stars are filled. Using `setState` on `_ProductDetailScreenState` would rebuild the entire `ProductDetailScreen` including the `GoogleMap` and `Image.network` widgets. `StatefulBuilder` creates a local rebuild scope inside the bottom sheet — only the bottom sheet content rebuilds on each star tap."
+
+3. **`isScrollControlled: true` for keyboard avoidance:** "`isScrollControlled: true` on `showModalBottomSheet` allows the sheet to resize based on `MediaQuery.of(ctx).viewInsets.bottom` — the keyboard height. When the buyer taps the comment field and the keyboard appears, the bottom sheet slides up to remain above the keyboard. Without `isScrollControlled`, the keyboard would cover the submit button."
+
+4. **Star rating custom validation:** "The star rating is not a `FormField` widget — it's a row of `GestureDetector`-wrapped `Icon` widgets. Standard `Form.validate()` doesn't cover it. The Submit button manually checks `selectedRating == 0` before calling `formKey.currentState!.validate()`. If no star is selected, `setSheetState(() {})` triggers a rebuild that shows the error text below the star row."
+
+5. **`commentController.dispose()` in `.whenComplete()`:** "`showModalBottomSheet` returns a `Future` that completes when the sheet closes — whether by dismiss, tap outside, or programmatic `Navigator.pop`. `.whenComplete()` is the correct place to dispose the `TextEditingController` because it fires on every close path. Disposing inside the `onPressed` callback would miss cases where the buyer dismisses the sheet without submitting."
+
+6. **`_reviewsSubscription` lifecycle:** "The review stream starts in `initState()` and the subscription is cancelled in `dispose()`. `ProductDetailScreen` is a `StatefulWidget` so it has a full lifecycle. When the buyer navigates back to `BuyerHomeScreen`, `dispose()` fires and the subscription is cancelled — preventing a memory leak or post-dispose state update from the Firestore stream."
+
+7. **`shrinkWrap` and `NeverScrollableScrollPhysics`:** "The reviews `ListView` is inside `ProductDetailScreen`'s `SingleChildScrollView`. A `ListView` inside a `SingleChildScrollView` requires `shrinkWrap: true` — otherwise Flutter doesn't know how tall to make the inner `ListView` and throws a layout error. `NeverScrollableScrollPhysics` disables the inner list's own scroll — the outer `SingleChildScrollView` handles all scrolling."
+
+8. **Buyer-only "Write a Review" gate:** "`_buildReviewsSection()` checks `AuthProvider.currentUser?.role == AppConstants.roleBuyer` before rendering the "Write a Review" button. Artisans and admins can read reviews but cannot submit them. The PR39 Firestore security rule enforces the same constraint at the database level — the UI gate is UX, the database rule is enforcement."
+
+9. **Average rating calculation:** "The average rating is computed inline: `_reviews.fold(0.0, (sum, r) => sum + r.rating) / _reviews.length`. `fold` accumulates the sum of all ratings starting from 0.0. Dividing by length gives the average. `toStringAsFixed(1)` formats it to one decimal place — '4.3 (12)' for 12 reviews averaging 4.3 stars."
+
+10. **What's Next:** "PR45 will complete the buyer navigation shell — implementing `BuyerHomeScreen`'s `BottomNavigationBar` with a full `IndexedStack` and cart badge count, making the three-tab navigation fully polished for the final submission."
