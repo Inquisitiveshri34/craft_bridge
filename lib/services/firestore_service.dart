@@ -3,6 +3,7 @@ import 'package:craft_bridge/models/user_model.dart';
 import 'package:craft_bridge/models/product_model.dart';
 import 'package:craft_bridge/models/order_model.dart';
 import 'package:craft_bridge/models/review_model.dart';
+import 'package:craft_bridge/core/constants/app_constants.dart';
 
 class FirestoreService {
 	// ignore: unused_field
@@ -13,23 +14,41 @@ class FirestoreService {
 	// ── User Methods ── implemented in PR10 ──────────────────────
 
 	Future<void> createUser(UserModel user) async {
-		throw UnimplementedError('createUser not yet implemented');
+		await _db
+			.collection(AppConstants.usersCollection)
+			.doc(user.uid)
+			.set(user.toMap());
 	}
 
 	Future<UserModel?> getUser(String uid) async {
-		throw UnimplementedError('getUser not yet implemented');
+		final DocumentSnapshot doc = await _db
+			.collection(AppConstants.usersCollection)
+			.doc(uid)
+			.get();
+		if (!doc.exists) return null;
+		return UserModel.fromMap(doc.data() as Map<String, dynamic>);
 	}
 
 	Future<void> updateUser(String uid, Map<String, dynamic> data) async {
-		throw UnimplementedError('updateUser not yet implemented');
+		await _db
+			.collection(AppConstants.usersCollection)
+			.doc(uid)
+			.update(data);
 	}
 
 	Future<List<UserModel>> getAllUsers() async {
-		throw UnimplementedError('getAllUsers not yet implemented');
+		final QuerySnapshot snapshot =
+				await _db.collection(AppConstants.usersCollection).get();
+		return snapshot.docs
+			.map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>))
+			.toList();
 	}
 
 	Future<void> updateUserApproval(String uid, bool isApproved) async {
-		throw UnimplementedError('updateUserApproval not yet implemented');
+		await _db
+			.collection(AppConstants.usersCollection)
+			.doc(uid)
+			.update({'isApproved': isApproved});
 	}
 
 	// ── Product Read Methods ── implemented in PR26 ───────────────
