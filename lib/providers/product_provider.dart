@@ -1,1 +1,3 @@
-// ProductProvider — implemented in PR26
+import 'package:flutter/foundation.dart';
+
+class ProductProvider extends ChangeNotifier {}

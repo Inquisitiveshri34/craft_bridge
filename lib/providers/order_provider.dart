@@ -1,1 +1,3 @@
-// OrderProvider — implemented in PR30
+import 'package:flutter/foundation.dart';
+
+class OrderProvider extends ChangeNotifier {}
