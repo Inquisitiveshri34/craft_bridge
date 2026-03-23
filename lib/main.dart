@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:craft_bridge/firebase_options.dart';
 import 'package:craft_bridge/core/theme/app_theme.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 
-void main() => runApp(const CraftBridgeApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(const CraftBridgeApp());
+}
 
 class CraftBridgeApp extends StatelessWidget {
   const CraftBridgeApp({super.key});
@@ -44,6 +50,13 @@ class _CraftBridgeHomeState extends State<CraftBridgeHome> {
             Text(
               AppConstants.appTagline,
               style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Firebase connected ✓',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.green,
+                  ),
             ),
           ],
         ),
