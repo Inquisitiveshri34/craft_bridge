@@ -1,1 +1,3 @@
-// AuthProvider — implemented in PR10
+import 'package:flutter/foundation.dart';
+
+class AuthProvider extends ChangeNotifier {}

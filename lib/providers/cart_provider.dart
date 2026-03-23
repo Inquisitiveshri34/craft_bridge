@@ -1,1 +1,3 @@
-// CartProvider — implemented in PR42
+import 'package:flutter/foundation.dart';
+
+class CartProvider extends ChangeNotifier {}
