@@ -57,7 +57,7 @@ This PR sits between Firebase setup (PR04) and High-Level Design (PR06). The des
 
 **Allowed file modification:**
 - `lib/core/theme/app_theme.dart` — finalized color scheme replaces provisional PR03 colors
-- `docs/PR05_Design_Thinking.md` — new document written to existing `docs/` directory
+- `docs/Design_Thinking.md` — new document written to existing `docs/` directory
 
 **Not allowed:**
 - Do NOT create any new folders.
@@ -128,7 +128,7 @@ No other structural changes to the class. `darkTheme` is not added in this PR �
 
 ---
 
-### `docs/PR05_Design_Thinking.md`
+### `docs/Design_Thinking.md`
 
 A Markdown document containing all of the following sections in order.
 
@@ -313,7 +313,7 @@ One paragraph stating: a Figma reference file was used to plan the wireframe lay
 
 | # | Deliverable | Description |
 |---|-------------|-------------|
-| 1 | `docs/PR05_Design_Thinking.md` | Complete design thinking document with all 8 sections — personas, journeys, wireframes, color palette, typography, accessibility |
+| 1 | `docs/Design_Thinking.md` | Complete design thinking document with all 8 sections — personas, journeys, wireframes, color palette, typography, accessibility |
 | 2 | `lib/core/theme/app_theme.dart` | Updated with finalized color scheme, `outlinedButtonTheme`, `floatingActionButtonTheme`, `chipTheme`, `dividerTheme`, and enhanced `inputDecorationTheme` |
 
 ---
@@ -357,7 +357,7 @@ The agent will handle all remaining code tasks and verification for this PR.
 
 ### Part 2 – Agent Implementation Instructions
 
-The agent must perform two tasks: update `app_theme.dart` and write `docs/PR05_Design_Thinking.md`.
+The agent must perform two tasks: update `app_theme.dart` and write `docs/Design_Thinking.md`.
 
 ---
 
@@ -380,9 +380,9 @@ All values must match Section 6 exactly. No values from Section 6 may be omitted
 
 ---
 
-**Task 2 — Write `docs/PR05_Design_Thinking.md`**
+**Task 2 — Write `docs/Design_Thinking.md`**
 
-Write a complete Markdown document to `docs/PR05_Design_Thinking.md` containing all 8 sections specified in Section 6 of this PR document, in order. The agent must write each section as follows:
+Write a complete Markdown document to `docs/Design_Thinking.md` containing all 8 sections specified in Section 6 of this PR document, in order. The agent must write each section as follows:
 
 - **Section 1 — Design Philosophy:** 3–4 sentences covering the four key points specified in Section 6.
 - **Section 2 — Color Palette:** The complete 9-row table exactly as specified, followed by the WCAG contrast paragraph.
@@ -421,9 +421,9 @@ No sections may be omitted. No tables may be abbreviated. All persona names, jou
    ```
    Confirm the file contains: `outlinedButtonTheme`, `floatingActionButtonTheme`, `chipTheme`, `dividerTheme`, updated `inputDecorationTheme` with `enabledBorder`/`focusedBorder`/`errorBorder`, and `cardTheme` with `color` and `margin`. If any sub-theme is missing, fix and re-run verification.
 
-4. **Verify `docs/PR05_Design_Thinking.md` exists and is complete**
+4. **Verify `docs/Design_Thinking.md` exists and is complete**
    ```
-   cat docs/PR05_Design_Thinking.md
+   cat docs/Design_Thinking.md
    ```
    Confirm all 8 sections are present. Confirm the three persona cards are present. Confirm all three journey tables are present with correct step counts (7, 8, 6). Confirm all 14 wireframe descriptions are present.
 
@@ -431,7 +431,7 @@ No sections may be omitted. No tables may be abbreviated. All persona names, jou
    ```
    git diff --name-only
    ```
-   Only `lib/core/theme/app_theme.dart` and `docs/PR05_Design_Thinking.md` should appear. If any other files appear, diagnose before pushing.
+   Only `lib/core/theme/app_theme.dart` and `docs/Design_Thinking.md` should appear. If any other files appear, diagnose before pushing.
 
 6. **Confirm all Section 9 acceptance criteria pass as binary checks** before pushing.
 
@@ -468,7 +468,7 @@ git push origin pr05-design-thinking
 
 ## Section 9 – Acceptance Criteria
 
-- [ ] `docs/PR05_Design_Thinking.md` exists and contains all 8 sections in the correct order.
+- [ ] `docs/Design_Thinking.md` exists and contains all 8 sections in the correct order.
 - [ ] Section 4 contains three complete persona cards for Meera Devi (Artisan), Arjun Mehta (Buyer), and Priya Nair (Admin).
 - [ ] Section 5 contains three journey maps with 7 steps (Artisan), 8 steps (Buyer), and 6 steps (Admin) respectively.
 - [ ] Section 6 contains wireframe descriptions for all 14 screens in the locked screen set.
