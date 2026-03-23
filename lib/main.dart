@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:craft_bridge/core/theme/app_theme.dart';
+import 'package:craft_bridge/core/constants/app_constants.dart';
 
 void main() => runApp(const CraftBridgeApp());
 
@@ -8,11 +10,42 @@ class CraftBridgeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CraftBridge',
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-      home: const Scaffold(
-        body: Center(
-          child: Text('Hello CraftBridge'),
+      theme: AppTheme.lightTheme,
+      home: const CraftBridgeHome(),
+    );
+  }
+}
+
+class CraftBridgeHome extends StatefulWidget {
+  const CraftBridgeHome({super.key});
+
+  @override
+  State<CraftBridgeHome> createState() => _CraftBridgeHomeState();
+}
+
+class _CraftBridgeHomeState extends State<CraftBridgeHome> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(AppConstants.appName),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              AppConstants.appName,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppConstants.appTagline,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
         ),
       ),
     );
