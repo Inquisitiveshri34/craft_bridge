@@ -63,7 +63,7 @@ This PR sits between Design Thinking (PR05) and the LLD (PR07). The architecture
 - None. All files already exist as placeholders or implementations from previous PRs.
 
 **Allowed file modification:**
-- `docs/PR06_High_Level_Design.md` — new document written to existing `docs/` directory
+- `docs/High_Level_Design.md` — new document written to existing `docs/` directory
 
 **Not allowed:**
 - Do NOT create any new folders.
@@ -78,7 +78,7 @@ This PR sits between Design Thinking (PR05) and the LLD (PR07). The architecture
 
 ## Section 6 – Technical Requirements
 
-### `docs/PR06_High_Level_Design.md`
+### `docs/High_Level_Design.md`
 
 A Markdown document containing all of the following sections in order. No section may be omitted.
 
@@ -314,7 +314,7 @@ A prose section covering:
 
 | # | Deliverable | Description |
 |---|-------------|-------------|
-| 1 | `docs/PR06_High_Level_Design.md` | Complete HLD document with all 9 sections — system overview, architecture diagram, module breakdown, Firebase service layer, data flow diagrams, state management, navigation, security, and deployment architecture |
+| 1 | `docs/High_Level_Design.md` | Complete HLD document with all 9 sections — system overview, architecture diagram, module breakdown, Firebase service layer, data flow diagrams, state management, navigation, security, and deployment architecture |
 
 ---
 
@@ -349,7 +349,7 @@ Confirm both `PR05_Design_Thinking.md` and `PR04` (no doc for PR04 — check `PR
 ---
 
 Manual setup for this PR is now complete.
-Open `docs/PR06_High_Level_Design.md` in your repository.
+Open `docs/High_Level_Design.md` in your repository.
 Paste the prompt into your agentic tool.
 The agent will handle all remaining code tasks and verification for this PR.
 
@@ -357,7 +357,7 @@ The agent will handle all remaining code tasks and verification for this PR.
 
 ### Part 2 – Agent Implementation Instructions
 
-The agent must perform exactly one task: write the file `docs/PR06_High_Level_Design.md`.
+The agent must perform exactly one task: write the file `docs/High_Level_Design.md`.
 
 The file is a Markdown document. It must contain all 9 sections specified in Section 6 of this PR document, in order, with no sections omitted. The agent must write each section as follows:
 
@@ -379,7 +379,7 @@ The file is a Markdown document. It must contain all 9 sections specified in Sec
 
 **Section 9 — Deployment Architecture:** Write full prose covering all six deployment points specified in Section 6.
 
-The agent must not create any `.dart` files. The agent must not modify any existing files. The only file written in this PR is `docs/PR06_High_Level_Design.md`.
+The agent must not create any `.dart` files. The agent must not modify any existing files. The only file written in this PR is `docs/High_Level_Design.md`.
 
 ---
 
@@ -399,7 +399,7 @@ The agent must not create any `.dart` files. The agent must not modify any exist
 
 3. **Verify document completeness**
    ```
-   cat docs/PR06_High_Level_Design.md
+   cat docs/High_Level_Design.md
    ```
    Confirm all 9 sections are present in order. Confirm Section 3 module table has 11 rows. Confirm Section 4 has four sub-sections. Confirm Section 5 has three ASCII flow diagrams. Confirm Sections 6, 7, 8, and 9 are written in prose.
 
@@ -407,7 +407,7 @@ The agent must not create any `.dart` files. The agent must not modify any exist
    ```
    git diff --name-only
    ```
-   The only file that should appear in the diff is `docs/PR06_High_Level_Design.md`. If any `.dart` files appear, the agent has violated scope — do not push and output a VERIFICATION FAILED report.
+   The only file that should appear in the diff is `docs/High_Level_Design.md`. If any `.dart` files appear, the agent has violated scope — do not push and output a VERIFICATION FAILED report.
 
 5. **Confirm all Section 9 acceptance criteria pass as binary checks** before pushing.
 
@@ -444,7 +444,7 @@ git push origin pr06-hld
 
 ## Section 9 – Acceptance Criteria
 
-- [ ] `docs/PR06_High_Level_Design.md` exists at the correct path.
+- [ ] `docs/High_Level_Design.md` exists at the correct path.
 - [ ] The document contains all 9 sections in the correct order with no sections omitted.
 - [ ] Section 2 contains the three-tier ASCII architecture diagram showing Flutter client, Firebase backend, and external services.
 - [ ] Section 3 contains an 11-row module breakdown table with Module, Files, Responsibility, and Depends On columns fully populated.
@@ -453,7 +453,7 @@ git push origin pr06-hld
 - [ ] Section 6 describes all four Providers and the Consumer/context.read/context.watch usage pattern.
 - [ ] Section 7 describes the RoleRouterScreen navigation hub and the no-named-routes decision.
 - [ ] No `.dart` files were created or modified by this PR.
-- [ ] `git diff --name-only` shows only `docs/PR06_High_Level_Design.md` as changed.
+- [ ] `git diff --name-only` shows only `docs/High_Level_Design.md` as changed.
 - [ ] `flutter analyze` returns zero errors and zero warnings.
 - [ ] The app compiles and runs without errors on the emulator.
 
