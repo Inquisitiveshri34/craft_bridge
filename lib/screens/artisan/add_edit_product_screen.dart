@@ -85,7 +85,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 					);
 
 		setState(() => _isLoading = true);
-		await productProvider.submitProductDraft(model: model, isEdit: _isEditMode);
+		await productProvider.addOrUpdateProduct(model: model, isEdit: _isEditMode);
 		if (!mounted) return;
 		setState(() => _isLoading = false);
 
@@ -319,14 +319,5 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 				),
 			),
 		);
-	}
-}
-
-extension _ProductProviderDraftSubmission on ProductProvider {
-	Future<void> submitProductDraft({
-		required ProductModel model,
-		required bool isEdit,
-	}) async {
-		await Future.delayed(const Duration(milliseconds: 500));
 	}
 }
