@@ -59,10 +59,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   Center(
                     child: Text(
                       AppConstants.appName,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -124,8 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     builder: (context, authProvider, _) {
                       return CustomButton(
                         label: 'Log In',
-                        onPressed:
-                            authProvider.isLoading ? null : _handleSignIn,
+                        onPressed: authProvider.isLoading ? null : _handleSignIn,
                         isLoading: authProvider.isLoading,
                       );
                     },

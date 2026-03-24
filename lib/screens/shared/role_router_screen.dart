@@ -1,8 +1,11 @@
-import 'package:craft_bridge/core/constants/app_constants.dart';
-import 'package:craft_bridge/providers/auth_provider.dart';
-import 'package:craft_bridge/screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:craft_bridge/providers/auth_provider.dart';
+import 'package:craft_bridge/core/constants/app_constants.dart';
+import 'package:craft_bridge/screens/auth/login_screen.dart';
+import 'package:craft_bridge/screens/artisan/artisan_home_screen.dart';
+import 'package:craft_bridge/screens/buyer/buyer_home_screen.dart';
+import 'package:craft_bridge/screens/admin/admin_home_screen.dart';
 
 class RoleRouterScreen extends StatelessWidget {
   const RoleRouterScreen({super.key});
@@ -17,32 +20,25 @@ class RoleRouterScreen extends StatelessWidget {
       );
     }
 
-    final user = authProvider.currentUser;
-    if (user == null) {
+    if (authProvider.currentUser == null) {
       return const LoginScreen();
     }
 
-    if (user.role == AppConstants.roleAdmin) {
-      return const _SimpleHomePlaceholder(
-        title: 'Admin Home',
-        message: 'AdminHomeScreen — implemented in PR48',
-      );
+    if (authProvider.currentUser!.role == AppConstants.roleAdmin) {
+      return const AdminHomeScreen();
     }
 
-    if (user.role == AppConstants.roleArtisan) {
-      if (user.isApproved) {
-        return const _SimpleHomePlaceholder(
-          title: 'Artisan Home',
-          message: 'ArtisanHomeScreen — implemented in PR16',
-        );
-      }
+    if (authProvider.currentUser!.role == AppConstants.roleArtisan &&
+        authProvider.currentUser!.isApproved) {
+      return const ArtisanHomeScreen();
+    }
+
+    if (authProvider.currentUser!.role == AppConstants.roleArtisan &&
+        !authProvider.currentUser!.isApproved) {
       return const _PendingApprovalScreen();
     }
 
-    return const _SimpleHomePlaceholder(
-      title: 'Buyer Home',
-      message: 'BuyerHomeScreen — implemented in PR17',
-    );
+    return const BuyerHomeScreen();
   }
 }
 
@@ -52,7 +48,9 @@ class _PendingApprovalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pending Approval')),
+      appBar: AppBar(
+        title: const Text('Pending Approval'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -93,26 +91,6 @@ class _PendingApprovalScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SimpleHomePlaceholder extends StatelessWidget {
-  final String title;
-  final String message;
-
-  const _SimpleHomePlaceholder({
-    required this.title,
-    required this.message,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text(message),
       ),
     );
   }
