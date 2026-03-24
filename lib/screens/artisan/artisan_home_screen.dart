@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:craft_bridge/providers/auth_provider.dart';
 
 class ArtisanHomeScreen extends StatelessWidget {
   const ArtisanHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('ArtisanHomeScreen — implemented in PR16'),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Artisan Home'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign Out',
+            onPressed: () => context.read<AuthProvider>().signOut(),
+          ),
+        ],
+      ),
+      body: const Center(
+        child: Text('ArtisanHomeScreen shell — full layout in PR17'),
       ),
     );
   }
