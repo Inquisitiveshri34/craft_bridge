@@ -27,8 +27,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleSignIn() async {
-    final authProvider = context.read<AuthProvider>();
-    await authProvider.signIn(
+    context.read<AuthProvider>().clearError();
+    if (!_formKey.currentState!.validate()) return;
+    await context.read<AuthProvider>().signIn(
       _emailController.text,
       _passwordController.text,
     );
@@ -85,6 +86,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     textCapitalization: TextCapitalization.none,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Email is required.';
+                      }
+                      final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                      if (!emailRegex.hasMatch(value.trim())) {
+                        return 'Please enter a valid email address.';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
@@ -92,6 +103,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     hint: 'Enter your password',
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Password is required.';
+                      }
+                      if (value.length < 6) {
+                        return 'Password must be at least 6 characters.';
+                      }
+                      return null;
+                    },
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
