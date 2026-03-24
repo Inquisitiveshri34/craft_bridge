@@ -46,6 +46,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 			_stockController.text = product.stock.toString();
 			_selectedCategory = product.category;
 			_isActive = product.isActive;
+			if (product.imageUrl.isNotEmpty && File(product.imageUrl).existsSync()) {
+				_selectedImageFile = File(product.imageUrl);
+			}
 		}
 		_addDirtyListeners();
 	}
@@ -84,12 +87,15 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 		final String trimmedDescription = _descriptionController.text.trim();
 		final double price = double.parse(_priceController.text.trim());
 		final int stock = int.parse(_stockController.text.trim());
+		final String imageUrl = _selectedImageFile?.path ??
+				(_isEditMode ? widget.product!.imageUrl : '');
 
 		final ProductModel model = _isEditMode
 				? widget.product!.copyWith(
 						title: trimmedTitle,
 						description: trimmedDescription,
 						price: price,
+						imageUrl: imageUrl,
 						category: _selectedCategory,
 						stock: stock,
 						isActive: _isActive,
@@ -101,7 +107,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 						title: trimmedTitle,
 						description: trimmedDescription,
 						price: price,
-						imageUrl: '',
+						imageUrl: imageUrl,
 						category: _selectedCategory!,
 						stock: stock,
 						isActive: _isActive,
