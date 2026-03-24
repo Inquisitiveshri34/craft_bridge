@@ -14,36 +14,30 @@ class RoleRouterScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
 
-    // Case 1: Not yet initialized
     if (!authProvider.isInitialized) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // Case 2: No authenticated user
     if (authProvider.currentUser == null) {
       return const LoginScreen();
     }
 
-    // Case 3: Admin role
     if (authProvider.currentUser!.role == AppConstants.roleAdmin) {
       return const AdminHomeScreen();
     }
 
-    // Case 4: Artisan role, approved
     if (authProvider.currentUser!.role == AppConstants.roleArtisan &&
         authProvider.currentUser!.isApproved) {
       return const ArtisanHomeScreen();
     }
 
-    // Case 5: Artisan role, not approved
     if (authProvider.currentUser!.role == AppConstants.roleArtisan &&
         !authProvider.currentUser!.isApproved) {
       return const _PendingApprovalScreen();
     }
 
-    // Case 6: Buyer role (default)
     return const BuyerHomeScreen();
   }
 }
