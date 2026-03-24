@@ -4,9 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/models/product_model.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
+import 'package:craft_bridge/services/storage_service.dart';
 import 'package:craft_bridge/widgets/custom_button.dart';
 import 'package:craft_bridge/widgets/custom_text_field.dart';
 
@@ -32,6 +34,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 	File? _selectedImageFile;
 	bool _isUploadingImage = false;
 	bool _isDirty = false;
+	String? _uploadedImageUrl;
 
 	bool get _isEditMode => widget.product != null;
 
@@ -83,62 +86,93 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 		if (!_formKey.currentState!.validate()) return;
 
 		final ProductProvider productProvider = context.read<ProductProvider>();
-		final String trimmedTitle = _titleController.text.trim();
-		final String trimmedDescription = _descriptionController.text.trim();
-		final double price = double.parse(_priceController.text.trim());
-		final int stock = int.parse(_stockController.text.trim());
-		final String imageUrl = _selectedImageFile?.path ??
-				(_isEditMode ? widget.product!.imageUrl : '');
-
-		final ProductModel model = _isEditMode
-				? widget.product!.copyWith(
-						title: trimmedTitle,
-						description: trimmedDescription,
-						price: price,
-						imageUrl: imageUrl,
-						category: _selectedCategory,
-						stock: stock,
-						isActive: _isActive,
-					)
-				: ProductModel(
-						id: '',
-						artisanId: '',
-						artisanName: '',
-						title: trimmedTitle,
-						description: trimmedDescription,
-						price: price,
-						imageUrl: imageUrl,
-						category: _selectedCategory!,
-						stock: stock,
-						isActive: _isActive,
-						createdAt: Timestamp.now(),
-					);
+		final String? artisanId = context.read<AuthProvider>().currentUser?.uid;
 
 		setState(() => _isLoading = true);
-		if (_selectedImageFile != null) {
-			setState(() => _isUploadingImage = true);
-			await Future.delayed(const Duration(milliseconds: 400));
-			if (!mounted) return;
-			setState(() => _isUploadingImage = false);
+
+		if (artisanId == null) {
+			setState(() => _isLoading = false);
+			ScaffoldMessenger.of(context).showSnackBar(
+				const SnackBar(content: Text('Error: user not authenticated.')),
+			);
+			return;
 		}
-		await productProvider.addOrUpdateProduct(model: model, isEdit: _isEditMode);
-		if (!mounted) return;
-		setState(() {
-			_isLoading = false;
-			_isDirty = false;
-		});
 
-		ScaffoldMessenger.of(context).showSnackBar(
-			SnackBar(
-				content: Text(
-					_isEditMode
-							? 'Product updated successfully.'
-							: 'Product added successfully.',
+		try {
+			String imageUrl = _uploadedImageUrl ??
+					(_isEditMode ? widget.product!.imageUrl : '');
+
+			if (_selectedImageFile != null) {
+				setState(() => _isUploadingImage = true);
+
+				imageUrl = await StorageService().uploadProductImage(
+					_selectedImageFile!,
+					artisanId,
+				);
+				if (!mounted) return;
+				setState(() {
+					_uploadedImageUrl = imageUrl;
+					_isUploadingImage = false;
+				});
+			}
+
+			final String trimmedTitle = _titleController.text.trim();
+			final String trimmedDescription = _descriptionController.text.trim();
+			final double price = double.parse(_priceController.text.trim());
+			final int stock = int.parse(_stockController.text.trim());
+
+			final ProductModel model = _isEditMode
+					? widget.product!.copyWith(
+							title: trimmedTitle,
+							description: trimmedDescription,
+							price: price,
+							imageUrl: imageUrl,
+							category: _selectedCategory,
+							stock: stock,
+							isActive: _isActive,
+						)
+					: ProductModel(
+							id: '',
+							artisanId: '',
+							artisanName: '',
+							title: trimmedTitle,
+							description: trimmedDescription,
+							price: price,
+							imageUrl: imageUrl,
+							category: _selectedCategory!,
+							stock: stock,
+							isActive: _isActive,
+							createdAt: Timestamp.now(),
+						);
+
+			await productProvider.addOrUpdateProduct(model: model, isEdit: _isEditMode);
+			if (!mounted) return;
+			setState(() {
+				_isLoading = false;
+				_isDirty = false;
+			});
+
+			ScaffoldMessenger.of(context).showSnackBar(
+				SnackBar(
+					content: Text(
+						_isEditMode
+								? 'Product updated successfully.'
+								: 'Product added successfully.',
+					),
 				),
-			),
-		);
+			);
 
-		Navigator.of(context).pop();
+			Navigator.of(context).pop();
+		} catch (e) {
+			if (!mounted) return;
+			setState(() {
+				_isLoading = false;
+				_isUploadingImage = false;
+			});
+			ScaffoldMessenger.of(context).showSnackBar(
+				SnackBar(content: Text('Upload failed: $e')),
+			);
+		}
 	}
 
 	Future<void> _pickImage() async {

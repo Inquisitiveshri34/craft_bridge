@@ -9,7 +9,19 @@ class StorageService {
 	// ── Storage Methods ── implemented in PR24 ───────────────────
 
 	Future<String> uploadProductImage(File imageFile, String artisanId) async {
-		throw UnimplementedError('uploadProductImage not yet implemented');
+		final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+		final Reference ref = _storage
+				.ref()
+				.child('products')
+				.child(artisanId)
+				.child(fileName);
+		final UploadTask uploadTask = ref.putFile(
+			imageFile,
+			SettableMetadata(contentType: 'image/jpeg'),
+		);
+		await uploadTask;
+		final String downloadUrl = await ref.getDownloadURL();
+		return downloadUrl;
 	}
 
 	// ── Storage Methods ── implemented in PR27 ───────────────────
