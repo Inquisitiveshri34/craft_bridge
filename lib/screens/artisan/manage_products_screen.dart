@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
 import 'package:craft_bridge/screens/artisan/add_edit_product_screen.dart';
-// ignore: unused_import
-import 'package:craft_bridge/widgets/product_card.dart';
 
 class ManageProductsScreen extends StatefulWidget {
 	const ManageProductsScreen({super.key});
@@ -14,12 +12,9 @@ class ManageProductsScreen extends StatefulWidget {
 }
 
 class _ManageProductsScreenState extends State<ManageProductsScreen> {
-	final Set<String> _deletedProductIds = <String>{};
-
-	void _handleDelete(String productId) {
-		setState(() {
-			_deletedProductIds.add(productId);
-		});
+	Future<void> _handleDelete(String productId) async {
+		await context.read<ProductProvider>().removeProduct(productId);
+		if (!mounted) return;
 		ScaffoldMessenger.of(context).showSnackBar(
 			const SnackBar(
 				content: Text('Product removed.'),
@@ -61,7 +56,10 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 		);
 	}
 
-	Widget _buildProductGrid(List<Map<String, dynamic>> products) {
+	Widget _buildProductGrid(
+		List<Map<String, dynamic>> products,
+		ProductProvider productProvider,
+	) {
 		final double screenWidth = MediaQuery.of(context).size.width;
 		final int crossAxisCount = screenWidth < 600 ? 2 : 3;
 
@@ -78,7 +76,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 				final product = products[index];
 
 				return Dismissible(
-					  key: Key(product["id"] as String),
+					key: Key(product["id"] as String),
 					direction: DismissDirection.endToStart,
 					background: Container(
 						alignment: Alignment.centerRight,
@@ -113,8 +111,18 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 							),
 						);
 					},
-					  onDismissed: (_) => _handleDelete(product["id"] as String),
-					child: _StubProductCard(product: product),
+					onDismissed: (_) => _handleDelete(product["id"] as String),
+					child: GestureDetector(
+						onTap: () => Navigator.push(
+							context,
+							MaterialPageRoute(
+								builder: (_) => AddEditProductScreen(
+									product: productProvider.toProductModel(product),
+								),
+							),
+						),
+						child: _StubProductCard(product: product),
+					),
 				);
 			},
 		);
@@ -123,13 +131,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 	@override
 	Widget build(BuildContext context) {
 		final ProductProvider productProvider = context.watch<ProductProvider>();
-		final List<Map<String, dynamic>> products = productProvider
-				.viewProducts
-				.where(
-					(product) =>
-						!_deletedProductIds.contains((product['id'] ?? '').toString()),
-				)
-				.toList();
+		final List<Map<String, dynamic>> products = productProvider.products;
 
 		return Scaffold(
 			backgroundColor: Theme.of(context).colorScheme.surface,
@@ -147,7 +149,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 					),
 				],
 			),
-			body: products.isEmpty ? _buildEmptyState() : _buildProductGrid(products),
+			body: products.isEmpty
+				? _buildEmptyState()
+				: _buildProductGrid(products, productProvider),
 			floatingActionButton: FloatingActionButton(
 				onPressed: () => Navigator.push(
 					context,
@@ -160,51 +164,6 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 			),
 		);
 	}
-}
-
-extension _ProductProviderViewData on ProductProvider {
-	List<Map<String, dynamic>> get viewProducts => [
-				{
-					'id': '1',
-					'title': 'Hand-painted Ceramic Vase',
-					'price': 1200.0,
-					'category': 'Pottery',
-					'stock': 5,
-					'isActive': true,
-				},
-				{
-					'id': '2',
-					'title': 'Block Print Cotton Scarf',
-					'price': 650.0,
-					'category': 'Textiles',
-					'stock': 12,
-					'isActive': true,
-				},
-				{
-					'id': '3',
-					'title': 'Silver Filigree Earrings',
-					'price': 850.0,
-					'category': 'Jewellery',
-					'stock': 8,
-					'isActive': false,
-				},
-				{
-					'id': '4',
-					'title': 'Teak Wood Serving Board',
-					'price': 1800.0,
-					'category': 'Woodwork',
-					'stock': 3,
-					'isActive': true,
-				},
-				{
-					'id': '5',
-					'title': 'Madhubani Wall Painting',
-					'price': 3500.0,
-					'category': 'Paintings',
-					'stock': 1,
-					'isActive': true,
-				},
-			];
 }
 
 class _StubProductCard extends StatelessWidget {
