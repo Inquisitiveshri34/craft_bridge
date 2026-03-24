@@ -10,16 +10,7 @@ import 'package:craft_bridge/screens/admin/admin_home_screen.dart';
 class RoleRouterScreen extends StatelessWidget {
   const RoleRouterScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-
-    if (!authProvider.isInitialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
+  Widget _resolveDestination(AuthProvider authProvider) {
     if (authProvider.currentUser == null) {
       return const LoginScreen();
     }
@@ -39,6 +30,19 @@ class RoleRouterScreen extends StatelessWidget {
     }
 
     return const BuyerHomeScreen();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
+    if (!authProvider.isInitialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return _resolveDestination(authProvider);
   }
 }
 
