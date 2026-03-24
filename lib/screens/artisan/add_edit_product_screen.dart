@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/models/product_model.dart';
@@ -26,6 +29,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 	String? _selectedCategory;
 	bool _isActive = true;
 	bool _isLoading = false;
+	File? _selectedImageFile;
+	bool _isUploadingImage = false;
+	bool _isDirty = false;
 
 	bool get _isEditMode => widget.product != null;
 
@@ -41,10 +47,28 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 			_selectedCategory = product.category;
 			_isActive = product.isActive;
 		}
+		_addDirtyListeners();
+	}
+
+	void _addDirtyListeners() {
+		_titleController.addListener(_markDirty);
+		_descriptionController.addListener(_markDirty);
+		_priceController.addListener(_markDirty);
+		_stockController.addListener(_markDirty);
+	}
+
+	void _markDirty() {
+		if (!_isDirty) {
+			setState(() => _isDirty = true);
+		}
 	}
 
 	@override
 	void dispose() {
+		_titleController.removeListener(_markDirty);
+		_descriptionController.removeListener(_markDirty);
+		_priceController.removeListener(_markDirty);
+		_stockController.removeListener(_markDirty);
 		_titleController.dispose();
 		_descriptionController.dispose();
 		_priceController.dispose();
@@ -85,9 +109,18 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 					);
 
 		setState(() => _isLoading = true);
+		if (_selectedImageFile != null) {
+			setState(() => _isUploadingImage = true);
+			await Future.delayed(const Duration(milliseconds: 400));
+			if (!mounted) return;
+			setState(() => _isUploadingImage = false);
+		}
 		await productProvider.addOrUpdateProduct(model: model, isEdit: _isEditMode);
 		if (!mounted) return;
-		setState(() => _isLoading = false);
+		setState(() {
+			_isLoading = false;
+			_isDirty = false;
+		});
 
 		ScaffoldMessenger.of(context).showSnackBar(
 			SnackBar(
@@ -102,15 +135,99 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 		Navigator.of(context).pop();
 	}
 
-	Widget _buildImagePlaceholder() {
-		return GestureDetector(
-			onTap: () {
-				ScaffoldMessenger.of(context).showSnackBar(
-					const SnackBar(
-						content: Text('Image picker — implemented in PR21'),
+	Future<void> _pickImage() async {
+		try {
+			final XFile? pickedFile = await ImagePicker().pickImage(
+				source: ImageSource.gallery,
+				maxWidth: 1024,
+				maxHeight: 1024,
+				imageQuality: 85,
+			);
+			if (pickedFile == null) return;
+
+			setState(() {
+				_selectedImageFile = File(pickedFile.path);
+				_isDirty = true;
+			});
+		} catch (e) {
+			if (!mounted) return;
+			ScaffoldMessenger.of(context).showSnackBar(
+				SnackBar(content: Text('Could not open image picker: $e')),
+			);
+		}
+	}
+
+	void _removeImage() {
+		setState(() {
+			_selectedImageFile = null;
+			_isDirty = true;
+		});
+	}
+
+	Widget _buildImageSection() {
+		if (_selectedImageFile != null) {
+			return Column(
+				crossAxisAlignment: CrossAxisAlignment.stretch,
+				children: [
+					ClipRRect(
+						borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+						child: Image.file(
+							_selectedImageFile!,
+							height: 200,
+							width: double.infinity,
+							fit: BoxFit.cover,
+						),
 					),
-				);
-			},
+					const SizedBox(height: 8),
+					Row(
+						children: [
+							Expanded(
+								child: OutlinedButton.icon(
+									onPressed: _isUploadingImage ? null : _pickImage,
+									icon: const Icon(Icons.edit_outlined, size: 16),
+									label: const Text('Change Image'),
+								),
+							),
+							const SizedBox(width: 8),
+							Expanded(
+								child: OutlinedButton.icon(
+									onPressed: _isUploadingImage ? null : _removeImage,
+									icon: Icon(
+										Icons.delete_outline,
+										size: 16,
+										color: Theme.of(context).colorScheme.error,
+									),
+									label: Text(
+										'Remove',
+										style: TextStyle(
+											color: Theme.of(context).colorScheme.error,
+										),
+									),
+								),
+							),
+						],
+					),
+					if (_isUploadingImage) ...[
+						const SizedBox(height: 8),
+						const LinearProgressIndicator(),
+						const SizedBox(height: 4),
+						Text(
+							'Uploading image...',
+							style: Theme.of(context).textTheme.bodySmall?.copyWith(
+									color: Theme.of(context)
+												.colorScheme
+												.onSurface
+												.withValues(alpha: 0.5),
+								),
+							textAlign: TextAlign.center,
+						),
+					],
+				],
+			);
+		}
+
+		return GestureDetector(
+			onTap: _pickImage,
 			child: Container(
 				height: 180,
 				width: double.infinity,
@@ -119,7 +236,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 					borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
 					border: Border.all(
 						color: Theme.of(context).colorScheme.outline,
-						style: BorderStyle.solid,
 					),
 				),
 				child: Column(
@@ -134,19 +250,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 						Text(
 							'Tap to add product image',
 							style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-										color:
-												Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-									),
-						),
-						const SizedBox(height: 4),
-						Text(
-							'(Image picker wired in PR21)',
-							style: Theme.of(context).textTheme.bodySmall?.copyWith(
-										color: Theme.of(context)
+									color: Theme.of(context)
 												.colorScheme
 												.onSurface
-												.withValues(alpha: 0.35),
-									),
+												.withValues(alpha: 0.5),
+								),
 						),
 					],
 				),
@@ -171,6 +279,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 					.toList(),
 			onChanged: (String? value) {
 				setState(() => _selectedCategory = value);
+				_markDirty();
 			},
 			validator: (String? value) {
 				if (value == null || value.isEmpty) {
@@ -183,20 +292,52 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
 	@override
 	Widget build(BuildContext context) {
-		return Scaffold(
-			backgroundColor: Theme.of(context).colorScheme.surface,
-			appBar: AppBar(
-				title: Text(_isEditMode ? 'Edit Product' : 'Add Product'),
-			),
-			body: SafeArea(
-				child: SingleChildScrollView(
-					child: Padding(
-						padding: const EdgeInsets.all(AppConstants.defaultPadding),
-						child: Form(
-							key: _formKey,
-							child: Column(
-								crossAxisAlignment: CrossAxisAlignment.stretch,
-								children: [
+		return PopScope(
+			canPop: !_isDirty,
+			onPopInvokedWithResult: (bool didPop, Object? result) async {
+				if (didPop) return;
+				final NavigatorState navigator = Navigator.of(context);
+				final bool? shouldPop = await showDialog<bool>(
+					context: context,
+					builder: (ctx) => AlertDialog(
+						title: const Text('Discard Changes?'),
+						content: const Text(
+							'You have unsaved changes. Are you sure you want to leave?',
+						),
+						actions: [
+							TextButton(
+								onPressed: () => Navigator.pop(ctx, false),
+								child: const Text('Keep Editing'),
+							),
+							TextButton(
+								onPressed: () => Navigator.pop(ctx, true),
+								style: TextButton.styleFrom(
+									foregroundColor: Theme.of(ctx).colorScheme.error,
+								),
+								child: const Text('Discard'),
+							),
+						],
+					),
+				);
+
+				if (shouldPop == true && mounted) {
+					navigator.pop();
+				}
+			},
+			child: Scaffold(
+				backgroundColor: Theme.of(context).colorScheme.surface,
+				appBar: AppBar(
+					title: Text(_isEditMode ? 'Edit Product' : 'Add Product'),
+				),
+				body: SafeArea(
+					child: SingleChildScrollView(
+						child: Padding(
+							padding: const EdgeInsets.all(AppConstants.defaultPadding),
+							child: Form(
+								key: _formKey,
+								child: Column(
+									crossAxisAlignment: CrossAxisAlignment.stretch,
+									children: [
 									Text(
 										'Product Image',
 										style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -204,7 +345,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 												),
 									),
 									const SizedBox(height: 8),
-									_buildImagePlaceholder(),
+									_buildImageSection(),
 									const SizedBox(height: 24),
 									Text(
 										'Product Details',
@@ -303,6 +444,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 										contentPadding: EdgeInsets.zero,
 										onChanged: (bool value) {
 											setState(() => _isActive = value);
+											_markDirty();
 										},
 									),
 									const SizedBox(height: 24),
@@ -313,6 +455,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 									),
 									const SizedBox(height: 24),
 								],
+								),
 							),
 						),
 					),
