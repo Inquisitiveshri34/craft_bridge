@@ -64,7 +64,7 @@ class AuthProvider extends ChangeNotifier {
       _setLoading(false);
       return true;
     } on FirebaseAuthException catch (e) {
-      _setError(_mapAuthError(e.code));
+      _setError(_mapAuthError(e.code, e.message));
       _setLoading(false);
       return false;
     } catch (e) {
@@ -104,7 +104,7 @@ class AuthProvider extends ChangeNotifier {
       _setLoading(false);
       return true;
     } on FirebaseAuthException catch (e) {
-      _setError(_mapAuthError(e.code));
+      _setError(_mapAuthError(e.code, e.message));
       _setLoading(false);
       return false;
     } catch (e) {
@@ -134,7 +134,7 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
   }
 
-  String _mapAuthError(String code) {
+  String _mapAuthError(String code, String? message) {
     switch (code) {
       case 'user-not-found':
         return 'No account found with this email address.';
@@ -154,8 +154,19 @@ class AuthProvider extends ChangeNotifier {
         return 'Email/password sign-in is not enabled.';
       case 'invalid-credential':
         return 'Invalid email or password. Please try again.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection and try again.';
+      case 'app-not-authorized':
+        return 'This app is not authorized to use Firebase Authentication.';
+      case 'invalid-app-credential':
+        return 'App credential is invalid. Please verify Firebase app setup.';
+      case 'internal-error':
+        return 'Firebase internal error. Please try again in a moment.';
       default:
-        return 'Authentication failed. Please try again.';
+        if (message != null && message.trim().isNotEmpty) {
+          return 'Authentication failed ($code): $message';
+        }
+        return 'Authentication failed ($code). Please try again.';
     }
   }
 

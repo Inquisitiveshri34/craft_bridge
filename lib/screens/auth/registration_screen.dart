@@ -36,13 +36,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Future<void> _handleSignUp() async {
     context.read<AuthProvider>().clearError();
     if (!_formKey.currentState!.validate()) return;
-    await context.read<AuthProvider>().signUp(
+    final bool success = await context.read<AuthProvider>().signUp(
       email: _emailController.text,
       password: _passwordController.text,
       displayName: _nameController.text,
       role: _selectedRole,
       bio: _bioController.text,
     );
+
+    if (!mounted) return;
+    if (success) {
+      Navigator.of(context).pop();
+    }
   }
 
   Widget _buildRoleCard({
