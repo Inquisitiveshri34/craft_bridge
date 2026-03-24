@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/providers/auth_provider.dart';
+import 'package:craft_bridge/providers/product_provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
+import 'package:craft_bridge/widgets/product_card.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -14,6 +16,19 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'All';
   int _currentNavIndex = 0;
+
+  List<Map<String, dynamic>> _filteredProducts(
+    List<Map<String, dynamic>> products,
+  ) {
+    final String query = _searchController.text.trim().toLowerCase();
+    return products.where((product) {
+      final bool categoryMatch =
+          _selectedCategory == 'All' || product['category'] == _selectedCategory;
+      final bool searchMatch = query.isEmpty ||
+          (product['title'] as String).toLowerCase().contains(query);
+      return categoryMatch && searchMatch;
+    }).toList();
+  }
 
   @override
   void dispose() {
@@ -93,8 +108,18 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   }
 
   Widget _buildProductGrid() {
+    final List<Map<String, dynamic>> products =
+        context.watch<ProductProvider>().products;
+    final List<Map<String, dynamic>> filteredProducts =
+        _filteredProducts(products);
+
+    if (filteredProducts.isEmpty) {
+      return _buildEmptyState();
+    }
+
     final double screenWidth = MediaQuery.of(context).size.width;
     final int crossAxisCount = screenWidth < 600 ? 2 : 3;
+
     return GridView.builder(
       padding: const EdgeInsets.all(AppConstants.defaultPadding),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -103,10 +128,51 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         mainAxisSpacing: 12,
         childAspectRatio: 0.75,
       ),
-      itemCount: 6,
+      itemCount: filteredProducts.length,
       itemBuilder: (context, index) {
-        return _PlaceholderProductCard(index: index);
+        final Map<String, dynamic> product = filteredProducts[index];
+        return ProductCard(
+          productId: (product['id'] ?? '').toString(),
+          title: (product['title'] ?? '').toString(),
+          price: ((product['price'] ?? 0) as num).toDouble(),
+          imageUrl: (product['imageUrl'] ?? '').toString(),
+          artisanName: (product['artisanName'] ?? '').toString(),
+          category: (product['category'] ?? '').toString(),
+          isActive: product['isActive'] == true,
+        );
       },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 72,
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No products found',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try a different search or category.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -154,73 +220,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
             icon: Icon(Icons.receipt_long_outlined),
             activeIcon: Icon(Icons.receipt_long),
             label: 'Orders',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlaceholderProductCard extends StatelessWidget {
-  final int index;
-
-  const _PlaceholderProductCard({required this.index});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Column(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: 0.08),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.image_outlined,
-                  size: 40,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.3),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 12,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  height: 10,
-                  width: 80,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
