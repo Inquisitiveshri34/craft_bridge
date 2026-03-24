@@ -55,49 +55,60 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       onTap: () => setState(() => _selectedRole = role),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+              : Theme.of(context).colorScheme.surface,
           border: Border.all(
             color: isSelected
                 ? Theme.of(context).colorScheme.primary
                 : Theme.of(context).colorScheme.outline,
             width: isSelected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(12),
-          color: isSelected
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
         ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Row(
           children: [
             Icon(
               icon,
-              size: 40,
               color: isSelected
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              size: 32,
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurface,
+                        ),
                   ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.6),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
+                        ),
                   ),
-              textAlign: TextAlign.center,
+                ],
+              ),
             ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: Theme.of(context).colorScheme.primary,
+              ),
           ],
         ),
       ),
