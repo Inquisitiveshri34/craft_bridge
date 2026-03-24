@@ -54,15 +54,36 @@ class FirestoreService {
 	// ── Product Read Methods ── implemented in PR26 ───────────────
 
 	Stream<List<ProductModel>> getProducts() {
-		throw UnimplementedError('getProducts not yet implemented');
+		return _db
+				.collection(AppConstants.productsCollection)
+				.where('isActive', isEqualTo: true)
+				.snapshots()
+				.map(
+					(snapshot) => snapshot.docs
+							.map((doc) => ProductModel.fromMap(doc.data()))
+							.toList(),
+				);
 	}
 
 	Stream<List<ProductModel>> getProductsByArtisan(String artisanId) {
-		throw UnimplementedError('getProductsByArtisan not yet implemented');
+		return _db
+				.collection(AppConstants.productsCollection)
+				.where('artisanId', isEqualTo: artisanId)
+				.snapshots()
+				.map(
+					(snapshot) => snapshot.docs
+							.map((doc) => ProductModel.fromMap(doc.data()))
+							.toList(),
+				);
 	}
 
 	Future<ProductModel?> getProductById(String productId) async {
-		throw UnimplementedError('getProductById not yet implemented');
+		final DocumentSnapshot doc = await _db
+				.collection(AppConstants.productsCollection)
+				.doc(productId)
+				.get();
+		if (!doc.exists) return null;
+		return ProductModel.fromMap(doc.data() as Map<String, dynamic>);
 	}
 
 	// ── Product Write Methods ── implemented in PR31 ──────────────
