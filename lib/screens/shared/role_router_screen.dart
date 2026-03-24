@@ -40,7 +40,7 @@ class RoleRouterScreen extends StatelessWidget {
     // Case 5: Artisan role, not approved
     if (authProvider.currentUser!.role == AppConstants.roleArtisan &&
         !authProvider.currentUser!.isApproved) {
-      return _PendingApprovalScreen();
+      return const _PendingApprovalScreen();
     }
 
     // Case 6: Buyer role (default)
@@ -49,6 +49,8 @@ class RoleRouterScreen extends StatelessWidget {
 }
 
 class _PendingApprovalScreen extends StatelessWidget {
+  const _PendingApprovalScreen();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
