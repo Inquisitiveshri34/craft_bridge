@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
@@ -176,6 +178,9 @@ class _StubProductCard extends StatelessWidget {
 	@override
 	Widget build(BuildContext context) {
 		final bool isActive = product['isActive'] == true;
+		final String imageUrl = (product['imageUrl'] ?? '').toString();
+		final bool hasLocalImage =
+				imageUrl.isNotEmpty && File(imageUrl).existsSync();
 
 		return Card(
 			shape: RoundedRectangleBorder(
@@ -194,14 +199,28 @@ class _StubProductCard extends StatelessWidget {
 										borderRadius:
 												const BorderRadius.vertical(top: Radius.circular(12)),
 									),
-									child: Center(
-										child: Icon(
-											Icons.image_outlined,
-											size: 40,
-											color:
-													Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-										),
-									),
+									child: hasLocalImage
+											? ClipRRect(
+													borderRadius: const BorderRadius.vertical(
+														top: Radius.circular(12),
+													),
+													child: Image.file(
+														File(imageUrl),
+														fit: BoxFit.cover,
+														width: double.infinity,
+														height: double.infinity,
+													),
+											)
+											: Center(
+													child: Icon(
+														Icons.image_outlined,
+														size: 40,
+														color: Theme.of(context)
+																.colorScheme
+																.primary
+																.withValues(alpha: 0.4),
+													),
+												),
 								),
 								Positioned(
 									top: 8,
