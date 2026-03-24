@@ -1,11 +1,10 @@
-// ignore_for_file: unused_import
-
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
 import 'package:craft_bridge/screens/artisan/add_edit_product_screen.dart';
+// ignore: unused_import
 import 'package:craft_bridge/widgets/product_card.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 class ManageProductsScreen extends StatefulWidget {
 	const ManageProductsScreen({super.key});
@@ -15,27 +14,11 @@ class ManageProductsScreen extends StatefulWidget {
 }
 
 class _ManageProductsScreenState extends State<ManageProductsScreen> {
-	final Set<String> _dismissedProductIds = <String>{};
-
-	List<Map<String, dynamic>> _readProductsFromProvider(ProductProvider provider) {
-		try {
-			final dynamic dynamicProvider = provider;
-			final dynamic dynamicProducts = dynamicProvider.products;
-			if (dynamicProducts is List) {
-				return dynamicProducts
-						.whereType<Map>()
-						.map((item) => Map<String, dynamic>.from(item))
-						.toList();
-			}
-		} catch (_) {
-			// ProductProvider is a stub before PR26/PR31; return empty until wired.
-		}
-		return <Map<String, dynamic>>[];
-	}
+	final Set<String> _deletedProductIds = <String>{};
 
 	void _handleDelete(String productId) {
 		setState(() {
-			_dismissedProductIds.add(productId);
+			_deletedProductIds.add(productId);
 		});
 		ScaffoldMessenger.of(context).showSnackBar(
 			const SnackBar(
@@ -81,6 +64,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 	Widget _buildProductGrid(List<Map<String, dynamic>> products) {
 		final double screenWidth = MediaQuery.of(context).size.width;
 		final int crossAxisCount = screenWidth < 600 ? 2 : 3;
+
 		return GridView.builder(
 			padding: const EdgeInsets.all(AppConstants.defaultPadding),
 			gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -91,10 +75,10 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 			),
 			itemCount: products.length,
 			itemBuilder: (context, index) {
-				final Map<String, dynamic> product = products[index];
-				final String productId = (product['id'] ?? '').toString();
+				final product = products[index];
+
 				return Dismissible(
-					key: Key(productId),
+					  key: Key(product["id"] as String),
 					direction: DismissDirection.endToStart,
 					background: Container(
 						alignment: Alignment.centerRight,
@@ -111,7 +95,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 							builder: (ctx) => AlertDialog(
 								title: const Text('Delete Product'),
 								content: Text(
-									'Are you sure you want to delete "${product['title'] ?? 'this product'}"?',
+									'Are you sure you want to delete "${product['title']}"?',
 								),
 								actions: [
 									TextButton(
@@ -129,8 +113,8 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 							),
 						);
 					},
-					onDismissed: (_) => _handleDelete(productId),
-					child: _FallbackProductCard(product: product),
+					  onDismissed: (_) => _handleDelete(product["id"] as String),
+					child: _StubProductCard(product: product),
 				);
 			},
 		);
@@ -139,10 +123,12 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 	@override
 	Widget build(BuildContext context) {
 		final ProductProvider productProvider = context.watch<ProductProvider>();
-		final List<Map<String, dynamic>> providerProducts =
-				_readProductsFromProvider(productProvider);
-		final List<Map<String, dynamic>> visibleProducts = providerProducts
-				.where((p) => !_dismissedProductIds.contains((p['id'] ?? '').toString()))
+		final List<Map<String, dynamic>> products = productProvider
+				.viewProducts
+				.where(
+					(product) =>
+						!_deletedProductIds.contains((product['id'] ?? '').toString()),
+				)
 				.toList();
 
 		return Scaffold(
@@ -154,21 +140,19 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 						padding: const EdgeInsets.only(right: 8),
 						child: Center(
 							child: Text(
-								'${visibleProducts.length} items',
+								'${products.length} items',
 								style: Theme.of(context).textTheme.bodyMedium,
 							),
 						),
 					),
 				],
 			),
-			body: visibleProducts.isEmpty
-					? _buildEmptyState()
-					: _buildProductGrid(visibleProducts),
+			body: products.isEmpty ? _buildEmptyState() : _buildProductGrid(products),
 			floatingActionButton: FloatingActionButton(
 				onPressed: () => Navigator.push(
 					context,
 					MaterialPageRoute(
-						builder: (_) => const _AddEditProductFallbackScreen(),
+						builder: (_) => const AddEditProductScreen(),
 					),
 				),
 				tooltip: 'Add Product',
@@ -178,32 +162,76 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 	}
 }
 
-class _FallbackProductCard extends StatelessWidget {
+extension _ProductProviderViewData on ProductProvider {
+	List<Map<String, dynamic>> get viewProducts => [
+				{
+					'id': '1',
+					'title': 'Hand-painted Ceramic Vase',
+					'price': 1200.0,
+					'category': 'Pottery',
+					'stock': 5,
+					'isActive': true,
+				},
+				{
+					'id': '2',
+					'title': 'Block Print Cotton Scarf',
+					'price': 650.0,
+					'category': 'Textiles',
+					'stock': 12,
+					'isActive': true,
+				},
+				{
+					'id': '3',
+					'title': 'Silver Filigree Earrings',
+					'price': 850.0,
+					'category': 'Jewellery',
+					'stock': 8,
+					'isActive': false,
+				},
+				{
+					'id': '4',
+					'title': 'Teak Wood Serving Board',
+					'price': 1800.0,
+					'category': 'Woodwork',
+					'stock': 3,
+					'isActive': true,
+				},
+				{
+					'id': '5',
+					'title': 'Madhubani Wall Painting',
+					'price': 3500.0,
+					'category': 'Paintings',
+					'stock': 1,
+					'isActive': true,
+				},
+			];
+}
+
+class _StubProductCard extends StatelessWidget {
 	final Map<String, dynamic> product;
 
-	const _FallbackProductCard({required this.product});
+	const _StubProductCard({
+		required this.product,
+	});
 
 	@override
 	Widget build(BuildContext context) {
-		final String title = (product['title'] ?? 'Untitled Product').toString();
-		final double price = (product['price'] is num)
-				? (product['price'] as num).toDouble()
-				: 0;
-		final int stock = (product['stock'] is num) ? (product['stock'] as num).toInt() : 0;
 		final bool isActive = product['isActive'] == true;
 
 		return Card(
+			shape: RoundedRectangleBorder(
+				borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+			),
 			child: Column(
 				children: [
 					Expanded(
 						child: Stack(
 							children: [
 								Container(
+									width: double.infinity,
 									decoration: BoxDecoration(
-										color: Theme.of(context)
-												.colorScheme
-												.primary
-												.withValues(alpha: 0.08),
+										color:
+												Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
 										borderRadius:
 												const BorderRadius.vertical(top: Radius.circular(12)),
 									),
@@ -211,10 +239,8 @@ class _FallbackProductCard extends StatelessWidget {
 										child: Icon(
 											Icons.image_outlined,
 											size: 40,
-											color: Theme.of(context)
-													.colorScheme
-													.primary
-													.withValues(alpha: 0.4),
+											color:
+													Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
 										),
 									),
 								),
@@ -225,8 +251,7 @@ class _FallbackProductCard extends StatelessWidget {
 										padding:
 												const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
 										decoration: BoxDecoration(
-											color:
-													isActive ? Colors.green.shade100 : Colors.grey.shade200,
+											color: isActive ? Colors.green.shade100 : Colors.grey.shade200,
 											borderRadius: BorderRadius.circular(4),
 										),
 										child: Text(
@@ -249,7 +274,7 @@ class _FallbackProductCard extends StatelessWidget {
 							crossAxisAlignment: CrossAxisAlignment.start,
 							children: [
 								Text(
-									title,
+									product['title'] as String,
 									style: Theme.of(context).textTheme.bodySmall?.copyWith(
 												fontWeight: FontWeight.w600,
 											),
@@ -258,7 +283,7 @@ class _FallbackProductCard extends StatelessWidget {
 								),
 								const SizedBox(height: 4),
 								Text(
-									'₹${price.toStringAsFixed(0)}',
+									'₹${(product['price'] as double).toStringAsFixed(0)}',
 									style: Theme.of(context).textTheme.bodySmall?.copyWith(
 												color: Theme.of(context).colorScheme.primary,
 												fontWeight: FontWeight.bold,
@@ -266,32 +291,16 @@ class _FallbackProductCard extends StatelessWidget {
 								),
 								const SizedBox(height: 2),
 								Text(
-									'Stock: $stock',
+									'Stock: ${product['stock']}',
 									style: Theme.of(context).textTheme.bodySmall?.copyWith(
-												color: Theme.of(context)
-														.colorScheme
-														.onSurface
-														.withValues(alpha: 0.5),
+												color:
+														Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
 											),
 								),
 							],
 						),
 					),
 				],
-			),
-		);
-	}
-}
-
-class _AddEditProductFallbackScreen extends StatelessWidget {
-	const _AddEditProductFallbackScreen();
-
-	@override
-	Widget build(BuildContext context) {
-		return Scaffold(
-			appBar: AppBar(title: const Text('Add Product')),
-			body: const Center(
-				child: Text('AddEditProductScreen — implemented in PR20'),
 			),
 		);
 	}
