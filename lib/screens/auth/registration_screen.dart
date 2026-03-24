@@ -34,8 +34,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _handleSignUp() async {
-    final authProvider = context.read<AuthProvider>();
-    await authProvider.signUp(
+    context.read<AuthProvider>().clearError();
+    if (!_formKey.currentState!.validate()) return;
+    await context.read<AuthProvider>().signUp(
       email: _emailController.text,
       password: _passwordController.text,
       displayName: _nameController.text,
@@ -156,6 +157,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     hint: 'Your full name',
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Display name is required.';
+                      }
+                      if (value.trim().length < 2) {
+                        return 'Name must be at least 2 characters.';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
@@ -164,6 +174,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     textCapitalization: TextCapitalization.none,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Email is required.';
+                      }
+                      final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                      if (!emailRegex.hasMatch(value.trim())) {
+                        return 'Please enter a valid email address.';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
@@ -171,6 +191,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     hint: 'Min. 6 characters',
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Password is required.';
+                      }
+                      if (value.length < 6) {
+                        return 'Password must be at least 6 characters.';
+                      }
+                      return null;
+                    },
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
@@ -187,6 +216,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     hint: 'Re-enter your password',
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please confirm your password.';
+                      }
+                      if (value != _passwordController.text) {
+                        return 'Passwords do not match.';
+                      }
+                      return null;
+                    },
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureConfirmPassword
@@ -226,6 +264,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       controller: _bioController,
                       maxLines: 3,
                       textCapitalization: TextCapitalization.sentences,
+                      validator: (value) {
+                        if (_selectedRole == AppConstants.roleArtisan) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please tell buyers about yourself and your craft.';
+                          }
+                          if (value.trim().length < 10) {
+                            return 'Bio must be at least 10 characters.';
+                          }
+                        }
+                        return null;
+                      },
                     ),
                   ],
                   const SizedBox(height: 24),
