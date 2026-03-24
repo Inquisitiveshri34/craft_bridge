@@ -14,6 +14,18 @@ class ManageProductsScreen extends StatefulWidget {
 }
 
 class _ManageProductsScreenState extends State<ManageProductsScreen> {
+	bool _cardsVisible = false;
+
+	@override
+	void initState() {
+		super.initState();
+		Future.delayed(const Duration(milliseconds: 80), () {
+			if (mounted) {
+				setState(() => _cardsVisible = true);
+			}
+		});
+	}
+
 	Future<void> _handleDelete(String productId) async {
 		await context.read<ProductProvider>().removeProduct(productId);
 		if (!mounted) return;
@@ -77,53 +89,58 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 			itemBuilder: (context, index) {
 				final product = products[index];
 
-				return Dismissible(
-					key: Key(product["id"] as String),
-					direction: DismissDirection.endToStart,
-					background: Container(
-						alignment: Alignment.centerRight,
-						padding: const EdgeInsets.only(right: 16),
-						decoration: BoxDecoration(
-							color: Theme.of(context).colorScheme.error,
-							borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+				return AnimatedOpacity(
+					opacity: _cardsVisible ? 1.0 : 0.0,
+					duration: const Duration(milliseconds: 400),
+					curve: Curves.easeIn,
+					child: Dismissible(
+						key: Key(product["id"] as String),
+						direction: DismissDirection.endToStart,
+						background: Container(
+							alignment: Alignment.centerRight,
+							padding: const EdgeInsets.only(right: 16),
+							decoration: BoxDecoration(
+								color: Theme.of(context).colorScheme.error,
+								borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+							),
+							child: const Icon(Icons.delete_outline, color: Colors.white),
 						),
-						child: const Icon(Icons.delete_outline, color: Colors.white),
-					),
-					confirmDismiss: (_) async {
-						return await showDialog<bool>(
-							context: context,
-							builder: (ctx) => AlertDialog(
-								title: const Text('Delete Product'),
-								content: Text(
-									'Are you sure you want to delete "${product['title']}"?',
-								),
-								actions: [
-									TextButton(
-										onPressed: () => Navigator.pop(ctx, false),
-										child: const Text('Cancel'),
+						confirmDismiss: (_) async {
+							return await showDialog<bool>(
+								context: context,
+								builder: (ctx) => AlertDialog(
+									title: const Text('Delete Product'),
+									content: Text(
+										'Are you sure you want to delete "${product['title']}"?',
 									),
-									TextButton(
-										onPressed: () => Navigator.pop(ctx, true),
-										style: TextButton.styleFrom(
-											foregroundColor: Theme.of(context).colorScheme.error,
+									actions: [
+										TextButton(
+											onPressed: () => Navigator.pop(ctx, false),
+											child: const Text('Cancel'),
 										),
-										child: const Text('Delete'),
+										TextButton(
+											onPressed: () => Navigator.pop(ctx, true),
+											style: TextButton.styleFrom(
+												foregroundColor: Theme.of(context).colorScheme.error,
+											),
+											child: const Text('Delete'),
+										),
+									],
+								),
+							);
+						},
+						onDismissed: (_) => _handleDelete(product["id"] as String),
+						child: GestureDetector(
+							onTap: () => Navigator.push(
+								context,
+								MaterialPageRoute(
+									builder: (_) => AddEditProductScreen(
+										product: productProvider.toProductModel(product),
 									),
-								],
-							),
-						);
-					},
-					onDismissed: (_) => _handleDelete(product["id"] as String),
-					child: GestureDetector(
-						onTap: () => Navigator.push(
-							context,
-							MaterialPageRoute(
-								builder: (_) => AddEditProductScreen(
-									product: productProvider.toProductModel(product),
 								),
 							),
+							child: _StubProductCard(product: product),
 						),
-						child: _StubProductCard(product: product),
 					),
 				);
 			},
