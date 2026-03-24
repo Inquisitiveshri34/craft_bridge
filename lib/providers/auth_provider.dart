@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,6 +15,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isInitialized = false;
   bool _isLoading = false;
   String? _errorMessage;
+  StreamSubscription<User?>? _authSubscription;
 
   // Public getters
   UserModel? get currentUser => _currentUser;
@@ -29,7 +32,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _init() {
-    _auth.authStateChanges().listen((User? firebaseUser) async {
+    _authSubscription =
+        _auth.authStateChanges().listen((User? firebaseUser) async {
       if (firebaseUser == null) {
         _currentUser = null;
         _isInitialized = true;
@@ -158,5 +162,11 @@ class AuthProvider extends ChangeNotifier {
   void _setError(String message) {
     _errorMessage = message;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }
