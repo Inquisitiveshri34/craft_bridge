@@ -1,11 +1,8 @@
-// ignore_for_file: unused_import
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/screens/artisan/manage_products_screen.dart';
-import 'package:craft_bridge/screens/artisan/artisan_orders_screen.dart';
 
 class ArtisanHomeScreen extends StatelessWidget {
   const ArtisanHomeScreen({super.key});
@@ -74,7 +71,7 @@ class ArtisanHomeScreen extends StatelessWidget {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const _ManageProductsFallbackScreen(),
+                              builder: (_) => const ManageProductsScreen(),
                             ),
                           ),
                         ),
@@ -105,7 +102,7 @@ class ArtisanHomeScreen extends StatelessWidget {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const _ManageProductsFallbackScreen(),
+                            builder: (_) => const ManageProductsScreen(),
                           ),
                         ),
                       ),
@@ -203,20 +200,6 @@ class _NavCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ManageProductsFallbackScreen extends StatelessWidget {
-  const _ManageProductsFallbackScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Products')),
-      body: const Center(
-        child: Text('ManageProductsScreen — implemented in PR18'),
       ),
     );
   }
