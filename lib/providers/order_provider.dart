@@ -31,6 +31,25 @@ class OrderProvider extends ChangeNotifier {
 		}
 	}
 
+	Future<bool> createOrder(OrderModel order) async {
+		_isLoading = true;
+		_errorMessage = null;
+		notifyListeners();
+
+		try {
+			await _firestoreService.createOrder(order);
+			_artisanOrders = <OrderModel>[order, ..._artisanOrders];
+			_isLoading = false;
+			notifyListeners();
+			return true;
+		} catch (e) {
+			_errorMessage = 'Failed to place order: $e';
+			_isLoading = false;
+			notifyListeners();
+			return false;
+		}
+	}
+
 	void clearError() {
 		_errorMessage = null;
 		notifyListeners();

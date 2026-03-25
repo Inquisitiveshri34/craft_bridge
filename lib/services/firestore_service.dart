@@ -112,11 +112,17 @@ class FirestoreService {
 	// ── Order Methods ── implemented in PR33 ─────────────────────
 
 	Future<void> createOrder(OrderModel order) async {
-		throw UnimplementedError('createOrder not yet implemented');
+		await _db
+				.collection(AppConstants.ordersCollection)
+				.doc(order.id)
+				.set(order.toMap());
 	}
 
 	Future<void> updateOrderStatus(String orderId, String status) async {
-		throw UnimplementedError('updateOrderStatus not yet implemented');
+		await _db
+				.collection(AppConstants.ordersCollection)
+				.doc(orderId)
+				.update({'status': status});
 	}
 
 	// ── Order Stream Methods ── implemented in PR34 ───────────────
