@@ -336,6 +336,27 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
             ),
         ],
       ),
+      floatingActionButton: _currentNavIndex == 0
+          ? Consumer<CartProvider>(
+              builder: (context, cartProvider, _) {
+                return AnimatedScale(
+                  scale: cartProvider.itemCount > 0 ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: FloatingActionButton.extended(
+                    onPressed: () => setState(() => _currentNavIndex = 1),
+                    icon: const Icon(Icons.shopping_cart_outlined),
+                    label: Text(
+                      '${cartProvider.itemCount} item${cartProvider.itemCount == 1 ? '' : 's'}',
+                    ),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                );
+              },
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: IndexedStack(
         index: _currentNavIndex,
         children: [
@@ -377,12 +398,24 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
               BottomNavigationBarItem(
                 icon: Badge(
                   isLabelVisible: cartProvider.itemCount > 0,
-                  label: Text('${cartProvider.itemCount}'),
+                  label: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    child: Text(
+                      '${cartProvider.itemCount}',
+                      key: ValueKey<int>(cartProvider.itemCount),
+                    ),
+                  ),
                   child: const Icon(Icons.shopping_cart_outlined),
                 ),
                 activeIcon: Badge(
                   isLabelVisible: cartProvider.itemCount > 0,
-                  label: Text('${cartProvider.itemCount}'),
+                  label: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    child: Text(
+                      '${cartProvider.itemCount}',
+                      key: ValueKey<int>(cartProvider.itemCount),
+                    ),
+                  ),
                   child: const Icon(Icons.shopping_cart),
                 ),
                 label: 'Cart',
