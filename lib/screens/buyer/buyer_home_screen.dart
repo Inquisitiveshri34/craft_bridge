@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/providers/auth_provider.dart';
+import 'package:craft_bridge/providers/cart_provider.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/models/product_model.dart';
+import 'package:craft_bridge/screens/buyer/buyer_orders_screen.dart';
+import 'package:craft_bridge/screens/buyer/cart_screen.dart';
 import 'package:craft_bridge/screens/buyer/product_detail_screen.dart';
 import 'package:craft_bridge/widgets/product_card.dart';
 
@@ -314,56 +317,84 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final String appBarTitle = _currentNavIndex == 0
+        ? 'Discover'
+        : _currentNavIndex == 1
+            ? 'My Cart'
+            : 'My Orders';
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Discover Crafts'),
+        title: Text(appBarTitle),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign Out',
-            onPressed: () => context.read<AuthProvider>().signOut(),
-          ),
-        ],
-      ),
-      body: AnimatedOpacity(
-        opacity: _contentOpacity,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeIn,
-        child: Column(
-          children: [
-            _buildSearchBar(),
-            _buildCategoryChips(),
-            _buildSortDropdown(),
-            Expanded(
-              child: _buildProductGrid(),
+          if (_currentNavIndex == 0)
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Sign Out',
+              onPressed: () => context.read<AuthProvider>().signOut(),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentNavIndex,
-        onTap: (index) => setState(() => _currentNavIndex = index),
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor:
-            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            activeIcon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
         ],
+      ),
+      body: IndexedStack(
+        index: _currentNavIndex,
+        children: [
+          AnimatedOpacity(
+            opacity: _contentOpacity,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeIn,
+            child: Column(
+              children: [
+                _buildSearchBar(),
+                _buildCategoryChips(),
+                _buildSortDropdown(),
+                Expanded(
+                  child: _buildProductGrid(),
+                ),
+              ],
+            ),
+          ),
+          const CartScreen(),
+          const BuyerOrdersScreen(),
+        ],
+      ),
+      bottomNavigationBar: Consumer<CartProvider>(
+        builder: (context, cartProvider, _) {
+          return BottomNavigationBar(
+            currentIndex: _currentNavIndex,
+            onTap: (index) => setState(() => _currentNavIndex = index),
+            selectedItemColor: Theme.of(context).colorScheme.primary,
+            unselectedItemColor: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.5),
+            items: [
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Badge(
+                  isLabelVisible: cartProvider.itemCount > 0,
+                  label: Text('${cartProvider.itemCount}'),
+                  child: const Icon(Icons.shopping_cart_outlined),
+                ),
+                activeIcon: Badge(
+                  isLabelVisible: cartProvider.itemCount > 0,
+                  label: Text('${cartProvider.itemCount}'),
+                  child: const Icon(Icons.shopping_cart),
+                ),
+                label: 'Cart',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.receipt_long_outlined),
+                activeIcon: Icon(Icons.receipt_long),
+                label: 'Orders',
+              ),
+            ],
+          );
+        },
       ),
     );
   }
