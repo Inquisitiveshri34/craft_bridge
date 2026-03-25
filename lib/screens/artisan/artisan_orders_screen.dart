@@ -14,21 +14,15 @@ class ArtisanOrdersScreen extends StatefulWidget {
 }
 
 class _ArtisanOrdersScreenState extends State<ArtisanOrdersScreen> {
-	Stream<List<OrderModel>>? _ordersStream;
+	String? _artisanId;
 
 	@override
 	void initState() {
 		super.initState();
 		WidgetsBinding.instance.addPostFrameCallback((_) {
-			final String? artisanId = context.read<AuthProvider>().currentUser?.uid;
-			if (artisanId == null || !mounted) return;
-			final OrderProvider orderProvider = context.read<OrderProvider>();
+			if (!mounted) return;
 			setState(() {
-				_ordersStream = Stream<List<OrderModel>>.fromFuture(
-					orderProvider
-							.fetchOrdersForArtisan(artisanId)
-							.then((_) => orderProvider.artisanOrders),
-				);
+				_artisanId = context.read<AuthProvider>().currentUser?.uid;
 			});
 		});
 	}
@@ -94,23 +88,25 @@ class _ArtisanOrdersScreenState extends State<ArtisanOrdersScreen> {
 
 	@override
 	Widget build(BuildContext context) {
+		final OrderProvider orderProvider = context.read<OrderProvider>();
+		final Stream<List<OrderModel>>? stream = _artisanId == null
+				? null
+				: orderProvider.watchOrdersForArtisan(_artisanId!);
+
 		return Scaffold(
 			backgroundColor: Theme.of(context).colorScheme.surface,
 			appBar: AppBar(
 				title: const Text('My Orders'),
 			),
 			body: StreamBuilder<List<OrderModel>>(
-				stream: _ordersStream,
+				stream: stream,
 				builder: (context, snapshot) {
-					final OrderProvider orderProvider = context.watch<OrderProvider>();
-
-					if (snapshot.connectionState == ConnectionState.waiting ||
-							orderProvider.isLoading ||
-							_ordersStream == null) {
+					if (_artisanId == null ||
+							snapshot.connectionState == ConnectionState.waiting) {
 						return const Center(child: CircularProgressIndicator());
 					}
 
-					if (orderProvider.errorMessage != null) {
+					if (snapshot.hasError) {
 						return Center(
 							child: Padding(
 								padding: const EdgeInsets.all(AppConstants.defaultPadding),
@@ -124,7 +120,7 @@ class _ArtisanOrdersScreenState extends State<ArtisanOrdersScreen> {
 										),
 										const SizedBox(height: 12),
 										Text(
-											orderProvider.errorMessage!,
+											'Failed to load orders: ${snapshot.error}',
 											textAlign: TextAlign.center,
 										),
 									],
@@ -133,8 +129,7 @@ class _ArtisanOrdersScreenState extends State<ArtisanOrdersScreen> {
 						);
 					}
 
-					final List<OrderModel> orders =
-							snapshot.data ?? orderProvider.artisanOrders;
+					final List<OrderModel> orders = snapshot.data ?? <OrderModel>[];
 					if (orders.isEmpty) {
 						return _buildEmptyState();
 					}

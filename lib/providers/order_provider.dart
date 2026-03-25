@@ -13,6 +13,10 @@ class OrderProvider extends ChangeNotifier {
 	bool get isLoading => _isLoading;
 	String? get errorMessage => _errorMessage;
 
+	Stream<List<OrderModel>> watchOrdersForArtisan(String artisanId) {
+		return _firestoreService.getOrdersByArtisan(artisanId);
+	}
+
 	Future<void> fetchOrdersForArtisan(String artisanId) async {
 		_isLoading = true;
 		_errorMessage = null;
