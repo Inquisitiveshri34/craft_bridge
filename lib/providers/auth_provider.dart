@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:craft_bridge/models/user_model.dart';
 import 'package:craft_bridge/services/firestore_service.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
@@ -41,6 +42,7 @@ class AuthProvider extends ChangeNotifier {
       } else {
         try {
           _currentUser = await _firestoreService.getUser(firebaseUser.uid);
+          await initNotifications();
           _isInitialized = true;
           notifyListeners();
         } catch (e) {
@@ -50,6 +52,31 @@ class AuthProvider extends ChangeNotifier {
         }
       }
     });
+  }
+
+  Future<void> initNotifications() async {
+    try {
+      final FirebaseMessaging messaging = FirebaseMessaging.instance;
+      final NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
+        final String? token = await messaging.getToken();
+        if (token != null && _currentUser != null) {
+          await _firestoreService.updateUser(_currentUser!.uid, {
+            'fcmToken': token,
+          });
+        }
+      }
+
+      // TODO(PR38+): Add foreground/background FCM handlers in app shell/main.
+    } catch (e) {
+      debugPrint('FCM init failed: $e');
+    }
   }
 
   Future<bool> signIn(String email, String password) async {
