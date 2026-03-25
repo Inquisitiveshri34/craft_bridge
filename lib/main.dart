@@ -23,16 +23,23 @@ class CraftBridgeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
-      child: MaterialApp(
-        title: AppConstants.appName,
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const SplashScreen(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) {
+          return MaterialApp(
+            title: AppConstants.appName,
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: const SplashScreen(),
+          );
+        },
       ),
     );
   }

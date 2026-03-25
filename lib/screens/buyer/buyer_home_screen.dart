@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:craft_bridge/core/theme/app_theme.dart';
 import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/providers/cart_provider.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
@@ -328,6 +329,20 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       appBar: AppBar(
         title: Text(appBarTitle),
         actions: [
+          if (_currentNavIndex == 0)
+            Consumer<ThemeProvider>(
+              builder: (_, themeProvider, __) => IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode
+                      ? Icons.light_mode_outlined
+                      : Icons.dark_mode_outlined,
+                ),
+                tooltip: themeProvider.isDarkMode
+                    ? 'Switch to light mode'
+                    : 'Switch to dark mode',
+                onPressed: () => context.read<ThemeProvider>().toggleTheme(),
+              ),
+            ),
           if (_currentNavIndex == 0)
             IconButton(
               icon: const Icon(Icons.logout),
