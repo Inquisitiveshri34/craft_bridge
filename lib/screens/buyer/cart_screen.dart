@@ -1,8 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/models/cart_item_model.dart';
-import 'package:craft_bridge/models/order_model.dart';
 import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/providers/cart_provider.dart';
 import 'package:craft_bridge/providers/order_provider.dart';
@@ -38,25 +36,17 @@ class _CartScreenState extends State<CartScreen> {
 		final List<CartItemModel> items = cartProvider.items;
 		bool allSuccess = true;
 		for (final CartItemModel item in items) {
-			final String orderId = FirebaseFirestore.instance
-					.collection(AppConstants.ordersCollection)
-					.doc()
-					.id;
-			final OrderModel order = OrderModel(
-				id: orderId,
+			final bool success = await orderProvider.createOrder(
 				buyerId: buyerId,
 				buyerName: buyerName,
-				artisanId: item.artisanId,
-				artisanName: item.artisanName,
 				productId: item.productId,
 				productTitle: item.title,
 				productImageUrl: item.imageUrl,
+				artisanId: item.artisanId,
+				artisanName: item.artisanName,
+				price: item.price,
 				quantity: item.quantity,
-				totalPrice: item.totalPrice,
-				status: AppConstants.statusPending,
-				createdAt: Timestamp.now(),
 			);
-			final bool success = await orderProvider.createOrder(order);
 			if (!success) {
 				allSuccess = false;
 			}

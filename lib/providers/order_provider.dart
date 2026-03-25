@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:craft_bridge/models/order_model.dart';
+import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/services/firestore_service.dart';
 
 class OrderProvider extends ChangeNotifier {
@@ -35,12 +37,40 @@ class OrderProvider extends ChangeNotifier {
 		}
 	}
 
-	Future<bool> createOrder(OrderModel order) async {
+	Future<bool> createOrder({
+		required String buyerId,
+		required String buyerName,
+		required String productId,
+		required String productTitle,
+		required String productImageUrl,
+		required String artisanId,
+		required String artisanName,
+		required double price,
+		required int quantity,
+	}) async {
 		_isLoading = true;
 		_errorMessage = null;
 		notifyListeners();
 
 		try {
+			final String orderId = FirebaseFirestore.instance
+					.collection(AppConstants.ordersCollection)
+					.doc()
+					.id;
+			final OrderModel order = OrderModel(
+				id: orderId,
+				buyerId: buyerId,
+				buyerName: buyerName,
+				artisanId: artisanId,
+				artisanName: artisanName,
+				productId: productId,
+				productTitle: productTitle,
+				productImageUrl: productImageUrl,
+				quantity: quantity,
+				totalPrice: price * quantity,
+				status: AppConstants.statusPending,
+				createdAt: Timestamp.now(),
+			);
 			await _firestoreService.createOrder(order);
 			_artisanOrders = <OrderModel>[order, ..._artisanOrders];
 			_isLoading = false;
