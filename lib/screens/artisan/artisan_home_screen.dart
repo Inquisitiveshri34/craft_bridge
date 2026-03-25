@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:craft_bridge/core/theme/app_theme.dart';
 import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/screens/artisan/manage_products_screen.dart';
@@ -18,6 +19,19 @@ class ArtisanHomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Artisan Home'),
         actions: [
+          Consumer<ThemeProvider>(
+            builder: (_, themeProvider, __) => IconButton(
+              icon: Icon(
+                themeProvider.isDarkMode
+                    ? Icons.light_mode_outlined
+                    : Icons.dark_mode_outlined,
+              ),
+              tooltip: themeProvider.isDarkMode
+                  ? 'Switch to light mode'
+                  : 'Switch to dark mode',
+              onPressed: () => context.read<ThemeProvider>().toggleTheme(),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sign Out',
