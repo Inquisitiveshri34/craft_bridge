@@ -168,11 +168,23 @@ class FirestoreService {
 	// ── Review Methods ── implemented in PR44 ────────────────────
 
 	Future<void> addReview(ReviewModel review) async {
-		throw UnimplementedError('addReview not yet implemented');
+		await _db
+				.collection(AppConstants.reviewsCollection)
+				.doc(review.id)
+				.set(review.toMap());
 	}
 
 	Stream<List<ReviewModel>> getReviewsByProduct(String productId) {
-		throw UnimplementedError('getReviewsByProduct not yet implemented');
+		return _db
+				.collection(AppConstants.reviewsCollection)
+				.where('productId', isEqualTo: productId)
+				.orderBy('createdAt', descending: true)
+				.snapshots()
+				.map(
+					(snapshot) => snapshot.docs
+							.map((doc) => ReviewModel.fromMap(doc.data()))
+							.toList(),
+				);
 	}
 
 	// ── Admin Methods ── implemented in PR48 ─────────────────────
