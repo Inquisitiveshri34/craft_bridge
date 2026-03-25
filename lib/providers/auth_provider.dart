@@ -84,6 +84,9 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     _clearError();
     try {
+      final bool isBuyer = role == AppConstants.roleBuyer;
+      final String normalizedBio =
+          role == AppConstants.roleArtisan ? bio.trim() : '';
       final UserCredential credential =
           await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
@@ -95,8 +98,8 @@ class AuthProvider extends ChangeNotifier {
         displayName: displayName.trim(),
         role: role,
         photoUrl: '',
-        bio: bio.trim(),
-        isApproved: role == AppConstants.roleBuyer,
+        bio: normalizedBio,
+        isApproved: isBuyer,
         createdAt: Timestamp.now(),
       );
       await _firestoreService.createUser(newUser);

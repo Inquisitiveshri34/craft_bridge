@@ -11,21 +11,20 @@ class RoleRouterScreen extends StatelessWidget {
   const RoleRouterScreen({super.key});
 
   Widget _resolveDestination(AuthProvider authProvider) {
-    if (authProvider.currentUser == null) {
+    final user = authProvider.currentUser;
+    if (user == null) {
       return const LoginScreen();
     }
 
-    if (authProvider.currentUser!.role == AppConstants.roleAdmin) {
+    if (user.role == AppConstants.roleAdmin) {
       return const AdminHomeScreen();
     }
 
-    if (authProvider.currentUser!.role == AppConstants.roleArtisan &&
-        authProvider.currentUser!.isApproved) {
+    if (user.role == AppConstants.roleArtisan && user.isApproved == true) {
       return const ArtisanHomeScreen();
     }
 
-    if (authProvider.currentUser!.role == AppConstants.roleArtisan &&
-        !authProvider.currentUser!.isApproved) {
+    if (user.role == AppConstants.roleArtisan && user.isApproved == false) {
       return const _PendingApprovalScreen();
     }
 
