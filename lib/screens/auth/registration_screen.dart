@@ -41,13 +41,42 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       password: _passwordController.text,
       displayName: _nameController.text,
       role: _selectedRole,
-      bio: _bioController.text,
+      bio: _selectedRole == AppConstants.roleArtisan
+          ? _bioController.text
+          : '',
     );
 
-    if (!mounted) return;
-    if (success) {
-      Navigator.of(context).pop();
+    if (success && _selectedRole == AppConstants.roleArtisan) {
+      if (!mounted) return;
+      await _showArtisanApprovalDialog();
     }
+  }
+
+  Future<void> _showArtisanApprovalDialog() async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(
+          Icons.hourglass_empty_rounded,
+          size: 48,
+          color: Colors.orange,
+        ),
+        title: const Text('Registration Submitted'),
+        content: const Text(
+          'Your artisan account has been created and is pending admin approval. '
+          'You will be able to access your shop once an admin reviews and '
+          'approves your registration.\n\n'
+          'You can sign in at any time to check your approval status.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildRoleCard({
