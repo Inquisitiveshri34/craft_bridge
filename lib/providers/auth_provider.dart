@@ -158,18 +158,15 @@ class AuthProvider extends ChangeNotifier {
       case 'invalid-credential':
         return 'Invalid email or password. Please try again.';
       case 'network-request-failed':
-        return 'Network error. Please check your internet connection and try again.';
-      case 'app-not-authorized':
-        return 'This app is not authorized to use Firebase Authentication.';
-      case 'invalid-app-credential':
-        return 'App credential is invalid. Please verify Firebase app setup.';
-      case 'internal-error':
-        return 'Firebase internal error. Please try again in a moment.';
+        return 'No internet connection. Please try again.';
+      case 'requires-recent-login':
+        return 'Please sign out and sign in again to continue.';
+      case 'account-exists-with-different-credential':
+        return 'An account already exists with a different sign-in method.';
+      case 'credential-already-in-use':
+        return 'This credential is already associated with another account.';
       default:
-        if (message != null && message.trim().isNotEmpty) {
-          return 'Authentication failed ($code): $message';
-        }
-        return 'Authentication failed ($code). Please try again.';
+        return 'Authentication failed. Please try again.';
     }
   }
 
