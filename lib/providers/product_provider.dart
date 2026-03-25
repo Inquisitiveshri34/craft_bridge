@@ -16,6 +16,9 @@ class ProductProvider extends ChangeNotifier {
 	String? _errorMessage;
 	StreamSubscription<List<ProductModel>>? _productsSubscription;
 	StreamSubscription<List<ProductModel>>? _artisanSubscription;
+	String _filterCategory = 'All';
+	String _searchQuery = '';
+	String _sortField = 'createdAt_desc';
 
 	List<Map<String, dynamic>> get products =>
 			List.unmodifiable(_products.map((product) => product.toMap()).toList());
@@ -24,10 +27,45 @@ class ProductProvider extends ChangeNotifier {
 		);
 	bool get isLoading => _isLoading;
 	String? get errorMessage => _errorMessage;
+	String get filterCategory => _filterCategory;
+	String get searchQuery => _searchQuery;
+	String get sortField => _sortField;
+
+	List<ProductModel> get filteredProducts {
+		final String query = _searchQuery.trim().toLowerCase();
+		List<ProductModel> result = _products.where((product) {
+			final bool categoryMatch =
+					_filterCategory == 'All' || product.category == _filterCategory;
+			final bool queryMatch = query.isEmpty ||
+					product.title.toLowerCase().contains(query) ||
+					product.description.toLowerCase().contains(query);
+			return categoryMatch && queryMatch;
+		}).toList();
+
+		switch (_sortField) {
+			case 'price_asc':
+				result.sort((a, b) => a.price.compareTo(b.price));
+				break;
+			case 'price_desc':
+				result.sort((a, b) => b.price.compareTo(a.price));
+				break;
+			case 'createdAt_asc':
+				result.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+				break;
+			case 'createdAt_desc':
+			default:
+				result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+		}
+
+		return List.unmodifiable(result);
+	}
 
 	void listenToProducts() {
 		_productsSubscription?.cancel();
 		_isLoading = true;
+		_filterCategory = 'All';
+		_searchQuery = '';
+		_sortField = 'createdAt_desc';
 		notifyListeners();
 		_productsSubscription = _firestoreService.getProducts().listen(
 			(productList) {
@@ -42,6 +80,26 @@ class ProductProvider extends ChangeNotifier {
 				notifyListeners();
 			},
 		);
+	}
+
+	void searchProducts(String query) {
+		_searchQuery = query;
+		notifyListeners();
+	}
+
+	void filterByCategory(String category) {
+		_filterCategory = category;
+		notifyListeners();
+	}
+
+	void sortProducts(String sortField) {
+		if (sortField == 'price_asc' ||
+				sortField == 'price_desc' ||
+				sortField == 'createdAt_asc' ||
+				sortField == 'createdAt_desc') {
+			_sortField = sortField;
+			notifyListeners();
+		}
 	}
 
 	void listenToArtisanProducts(String artisanId) {
