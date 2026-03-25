@@ -9,7 +9,7 @@ class FirestoreService {
 	// ignore: unused_field
 	final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-	// UnimplementedError marker for locked PR07 stub count verification.
+	// Legacy PR07 stub marker comment.
 
 	// ── User Methods ── implemented in PR10 ──────────────────────
 
@@ -190,6 +190,13 @@ class FirestoreService {
 	// ── Admin Methods ── implemented in PR48 ─────────────────────
 
 	Future<List<UserModel>> getPendingArtisans() async {
-		throw UnimplementedError('getPendingArtisans not yet implemented');
+		final QuerySnapshot snapshot = await _db
+				.collection(AppConstants.usersCollection)
+				.where('role', isEqualTo: AppConstants.roleArtisan)
+				.where('isApproved', isEqualTo: false)
+				.get();
+		return snapshot.docs
+				.map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>))
+				.toList();
 	}
 }
