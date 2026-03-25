@@ -83,38 +83,10 @@ class _ArtisanOrdersScreenState extends State<ArtisanOrdersScreen> {
 	}
 
 	Widget _buildEmptyState() {
-		return Center(
-			child: Column(
-				mainAxisAlignment: MainAxisAlignment.center,
-				children: [
-					Icon(
-						Icons.receipt_long_outlined,
-						size: 80,
-						color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-					),
-					const SizedBox(height: 16),
-					Text(
-						'No orders yet',
-						style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-									fontWeight: FontWeight.bold,
-									color: Theme.of(context)
-											.colorScheme
-											.onSurface
-											.withValues(alpha: 0.6),
-								),
-					),
-					const SizedBox(height: 8),
-					Text(
-						'Orders from buyers will appear here.',
-						style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-									color: Theme.of(context)
-											.colorScheme
-											.onSurface
-											.withValues(alpha: 0.45),
-								),
-					),
-				],
-			),
+		return const EmptyStateWidget(
+			icon: Icons.receipt_long_outlined,
+			title: 'No orders yet',
+			subtitle: 'Orders from buyers will appear here.',
 		);
 	}
 
@@ -215,29 +187,16 @@ class _ArtisanOrdersScreenState extends State<ArtisanOrdersScreen> {
 				builder: (context, snapshot) {
 					if (_artisanId == null ||
 							snapshot.connectionState == ConnectionState.waiting) {
-						return const Center(child: CircularProgressIndicator());
+						return const LoadingWidget();
 					}
 
 					if (snapshot.hasError) {
-						return Center(
-							child: Padding(
-								padding: const EdgeInsets.all(AppConstants.defaultPadding),
-								child: Column(
-									mainAxisAlignment: MainAxisAlignment.center,
-									children: [
-										Icon(
-											Icons.error_outline,
-											size: 48,
-											color: Theme.of(context).colorScheme.error,
-										),
-										const SizedBox(height: 12),
-										Text(
-											'Failed to load orders: ${snapshot.error}',
-											textAlign: TextAlign.center,
-										),
-									],
-								),
-							),
+						return AppErrorWidget(
+							message: 'Failed to load orders: ${snapshot.error}',
+							onRetry: () {
+								orderProvider.clearError();
+								setState(() {});
+							},
 						);
 					}
 

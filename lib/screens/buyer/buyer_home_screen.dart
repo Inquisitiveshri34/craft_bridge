@@ -9,6 +9,7 @@ import 'package:craft_bridge/models/product_model.dart';
 import 'package:craft_bridge/screens/buyer/buyer_orders_screen.dart';
 import 'package:craft_bridge/screens/buyer/cart_screen.dart';
 import 'package:craft_bridge/screens/buyer/product_detail_screen.dart';
+import 'package:craft_bridge/widgets/order_card.dart';
 import 'package:craft_bridge/widgets/product_card.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
@@ -215,34 +216,15 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     return Consumer<ProductProvider>(
       builder: (context, productProvider, _) {
         if (productProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingWidget();
         }
         if (productProvider.errorMessage != null) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  productProvider.errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    productProvider.clearError();
-                    productProvider.listenToProducts();
-                  },
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
+          return AppErrorWidget(
+            message: productProvider.errorMessage!,
+            onRetry: () {
+              productProvider.clearError();
+              productProvider.listenToProducts();
+            },
           );
         }
 
@@ -285,34 +267,10 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 72,
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No products found',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color:
-                      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try a different search or category.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color:
-                      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
-                ),
-          ),
-        ],
-      ),
+    return const EmptyStateWidget(
+      icon: Icons.search_off_rounded,
+      title: 'No products found',
+      subtitle: 'Try a different search or category.',
     );
   }
 

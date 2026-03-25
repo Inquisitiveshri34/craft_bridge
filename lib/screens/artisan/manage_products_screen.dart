@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
 import 'package:craft_bridge/screens/artisan/add_edit_product_screen.dart';
+import 'package:craft_bridge/widgets/order_card.dart';
 
 class ManageProductsScreen extends StatefulWidget {
 	const ManageProductsScreen({super.key});
@@ -38,35 +39,10 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 	}
 
 	Widget _buildEmptyState() {
-		return Center(
-			child: Column(
-				mainAxisAlignment: MainAxisAlignment.center,
-				children: [
-					Icon(
-						Icons.inventory_2_outlined,
-						size: 80,
-						color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-					),
-					const SizedBox(height: 16),
-					Text(
-						'No products yet',
-						style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-									fontWeight: FontWeight.bold,
-									color:
-											Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-								),
-					),
-					const SizedBox(height: 8),
-					Text(
-						'Tap the + button to add your first product.',
-						style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-									color:
-											Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-								),
-						textAlign: TextAlign.center,
-					),
-				],
-			),
+		return const EmptyStateWidget(
+			icon: Icons.inventory_2_outlined,
+			title: 'No products yet',
+			subtitle: 'Tap the + button to add your first product.',
 		);
 	}
 
@@ -168,9 +144,19 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 					),
 				],
 			),
-			body: products.isEmpty
-				? _buildEmptyState()
-				: _buildProductGrid(products, productProvider),
+			body: productProvider.isLoading
+				? const LoadingWidget()
+				: productProvider.errorMessage != null
+						? AppErrorWidget(
+								message: productProvider.errorMessage!,
+								onRetry: () {
+									productProvider.clearError();
+									productProvider.listenToProducts();
+								},
+							)
+						: products.isEmpty
+								? _buildEmptyState()
+								: _buildProductGrid(products, productProvider),
 			floatingActionButton: FloatingActionButton(
 				onPressed: () => Navigator.push(
 					context,
