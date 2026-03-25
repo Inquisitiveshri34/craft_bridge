@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:craft_bridge/models/product_model.dart';
 import 'package:craft_bridge/models/user_model.dart';
@@ -18,6 +19,8 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
 	int _quantity = 1;
 	bool _isAddingToCart = false;
+	Position? _buyerPosition;
+	bool _isLoadingLocation = false;
 	final FirestoreService _firestoreService = FirestoreService();
 	late final Future<LatLng> _artisanLocationFuture;
 
@@ -25,6 +28,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 	void initState() {
 		super.initState();
 		_artisanLocationFuture = _loadArtisanLocation();
+		_fetchBuyerLocation();
 	}
 
 	Widget _buildImageSection() {
@@ -184,6 +188,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 			builder: (context, snapshot) {
 				final LatLng artisanLocation =
 						snapshot.data ?? _getArtisanLocation(widget.product.artisanName);
+				final Set<Marker> markers = <Marker>{
+					Marker(
+						markerId: const MarkerId('artisan-location'),
+						position: artisanLocation,
+						infoWindow: InfoWindow(
+							title: widget.product.artisanName,
+							snippet: widget.product.category,
+						),
+					),
+				};
+				if (_buyerPosition != null) {
+					markers.add(
+						Marker(
+							markerId: const MarkerId('buyer-location'),
+							position: LatLng(
+								_buyerPosition!.latitude,
+								_buyerPosition!.longitude,
+							),
+							icon: BitmapDescriptor.defaultMarkerWithHue(
+								BitmapDescriptor.hueBlue,
+							),
+							infoWindow: const InfoWindow(title: 'Your location'),
+						),
+					);
+				}
+				final String distanceText = _calculateDistance(artisanLocation);
 				return Column(
 					crossAxisAlignment: CrossAxisAlignment.start,
 					children: [
@@ -196,14 +226,63 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 									?.copyWith(fontWeight: FontWeight.bold),
 						),
 						const SizedBox(height: 4),
-						Text(
-							'Made by ${widget.product.artisanName}',
-							style: Theme.of(context).textTheme.bodySmall?.copyWith(
-										color: Theme.of(context)
-												.colorScheme
-												.onSurface
-												.withValues(alpha: 0.6),
+						Row(
+							children: [
+								Expanded(
+									child: Text(
+										'Made by ${widget.product.artisanName}',
+										style: Theme.of(context).textTheme.bodySmall?.copyWith(
+												color: Theme.of(context)
+														.colorScheme
+														.onSurface
+														.withValues(alpha: 0.6),
+										),
+									),
 								),
+								if (_isLoadingLocation)
+									const SizedBox(
+										width: 14,
+										height: 14,
+										child: CircularProgressIndicator(strokeWidth: 2),
+									)
+								else if (distanceText.isNotEmpty)
+									Container(
+										padding: const EdgeInsets.symmetric(
+											horizontal: 8,
+											vertical: 3,
+										),
+										decoration: BoxDecoration(
+											color: Theme.of(context)
+													.colorScheme
+													.primary
+													.withValues(alpha: 0.1),
+											borderRadius: BorderRadius.circular(12),
+										),
+										child: Row(
+											mainAxisSize: MainAxisSize.min,
+											children: [
+												Icon(
+													Icons.near_me_outlined,
+													size: 12,
+													color: Theme.of(context).colorScheme.primary,
+												),
+												const SizedBox(width: 4),
+												Text(
+													distanceText,
+													style: Theme.of(context)
+															.textTheme
+															.bodySmall
+															?.copyWith(
+																color: Theme.of(context)
+																		.colorScheme
+																		.primary,
+																fontWeight: FontWeight.w600,
+															),
+												),
+											],
+										),
+									),
+							],
 						),
 						const SizedBox(height: 12),
 						ClipRRect(
@@ -215,16 +294,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 										target: artisanLocation,
 										zoom: 11,
 									),
-									markers: {
-										Marker(
-											markerId: const MarkerId('artisan-location'),
-											position: artisanLocation,
-											infoWindow: InfoWindow(
-												title: widget.product.artisanName,
-												snippet: widget.product.category,
-											),
-										),
-									},
+									markers: markers,
 									zoomControlsEnabled: false,
 									myLocationButtonEnabled: false,
 									myLocationEnabled: false,
@@ -240,6 +310,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 				);
 			},
 		);
+	}
+
+	Future<void> _fetchBuyerLocation() async {
+		setState(() => _isLoadingLocation = true);
+		try {
+			LocationPermission permission = await Geolocator.checkPermission();
+			if (permission == LocationPermission.denied) {
+				permission = await Geolocator.requestPermission();
+			}
+			if (permission == LocationPermission.denied ||
+					permission == LocationPermission.deniedForever) {
+				setState(() => _isLoadingLocation = false);
+				return;
+			}
+
+			final Position position = await Geolocator.getCurrentPosition(
+				locationSettings: const LocationSettings(
+					accuracy: LocationAccuracy.medium,
+				),
+			);
+
+			if (!mounted) return;
+			setState(() {
+				_buyerPosition = position;
+				_isLoadingLocation = false;
+			});
+		} catch (_) {
+			if (!mounted) return;
+			setState(() => _isLoadingLocation = false);
+		}
+	}
+
+	String _calculateDistance(LatLng artisanLocation) {
+		if (_buyerPosition == null) return '';
+		final double distanceInMetres = Geolocator.distanceBetween(
+			_buyerPosition!.latitude,
+			_buyerPosition!.longitude,
+			artisanLocation.latitude,
+			artisanLocation.longitude,
+		);
+		final double distanceInKm = distanceInMetres / 1000;
+		if (distanceInKm < 1) {
+			return '${distanceInMetres.toStringAsFixed(0)} m away';
+		}
+		return '${distanceInKm.toStringAsFixed(1)} km away';
 	}
 
 	Future<void> _handleAddToCart() async {
