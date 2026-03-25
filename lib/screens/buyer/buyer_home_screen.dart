@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
+import 'package:craft_bridge/models/product_model.dart';
+import 'package:craft_bridge/screens/buyer/product_detail_screen.dart';
 import 'package:craft_bridge/widgets/product_card.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
@@ -16,17 +18,14 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'All';
   int _currentNavIndex = 0;
+  double _contentOpacity = 0.0;
 
   PageRouteBuilder<void> _buildProductDetailRoute(
-    Map<String, dynamic> product,
+    ProductModel product,
   ) {
     return PageRouteBuilder<void>(
       pageBuilder: (context, animation, secondaryAnimation) => ProductDetailScreen(
-        productId: (product['id'] ?? '').toString(),
-        title: (product['title'] ?? '').toString(),
-        artisanName: (product['artisanName'] ?? '').toString(),
-        price: ((product['price'] ?? 0) as num).toDouble(),
-        imageUrl: (product['imageUrl'] ?? '').toString(),
+        product: product,
       ),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         const Offset begin = Offset(1.0, 0.0);
@@ -44,17 +43,33 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _filteredProducts(
-    List<Map<String, dynamic>> products,
-  ) {
+  List<ProductModel> get _filteredProducts {
+    final List<Map<String, dynamic>> rawProducts =
+        context.read<ProductProvider>().products;
+    final List<ProductModel> allProducts = rawProducts
+        .map((map) => ProductModel.fromMap(map))
+        .toList();
     final String query = _searchController.text.trim().toLowerCase();
-    return products.where((product) {
+    return allProducts.where((product) {
       final bool categoryMatch =
-          _selectedCategory == 'All' || product['category'] == _selectedCategory;
+          _selectedCategory == 'All' || product.category == _selectedCategory;
       final bool searchMatch = query.isEmpty ||
-          (product['title'] as String).toLowerCase().contains(query);
+          product.title.toLowerCase().contains(query);
       return categoryMatch && searchMatch;
     }).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProductProvider>().listenToProducts();
+    });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        setState(() => _contentOpacity = 1.0);
+      }
+    });
   }
 
   @override
@@ -135,41 +150,73 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   }
 
   Widget _buildProductGrid() {
-    final List<Map<String, dynamic>> products =
-        context.watch<ProductProvider>().products;
-    final List<Map<String, dynamic>> filteredProducts =
-        _filteredProducts(products);
+    return Consumer<ProductProvider>(
+      builder: (context, productProvider, _) {
+        if (productProvider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (productProvider.errorMessage != null) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  productProvider.errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    productProvider.clearError();
+                    productProvider.listenToProducts();
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
 
-    if (filteredProducts.isEmpty) {
-      return _buildEmptyState();
-    }
+        final List<ProductModel> products = _filteredProducts;
+        if (products.isEmpty) {
+          return _buildEmptyState();
+        }
 
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final int crossAxisCount = screenWidth < 600 ? 2 : 3;
+        final double screenWidth = MediaQuery.of(context).size.width;
+        final int crossAxisCount = screenWidth < 600 ? 2 : 3;
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(AppConstants.defaultPadding),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: filteredProducts.length,
-      itemBuilder: (context, index) {
-        final Map<String, dynamic> product = filteredProducts[index];
-        return ProductCard(
-          productId: (product['id'] ?? '').toString(),
-          title: (product['title'] ?? '').toString(),
-          price: ((product['price'] ?? 0) as num).toDouble(),
-          imageUrl: (product['imageUrl'] ?? '').toString(),
-          artisanName: (product['artisanName'] ?? '').toString(),
-          category: (product['category'] ?? '').toString(),
-          isActive: product['isActive'] == true,
-          onTap: () => Navigator.push(
-            context,
-            _buildProductDetailRoute(product),
+        return GridView.builder(
+          padding: const EdgeInsets.all(AppConstants.defaultPadding),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.75,
           ),
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            final ProductModel product = products[index];
+            return ProductCard(
+              productId: product.id,
+              title: product.title,
+              price: product.price,
+              imageUrl: product.imageUrl,
+              artisanName: product.artisanName,
+              category: product.category,
+              isActive: product.isActive,
+              onTap: () => Navigator.push(
+                context,
+                _buildProductDetailRoute(product),
+              ),
+            );
+          },
         );
       },
     );
@@ -221,14 +268,19 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          _buildCategoryChips(),
-          Expanded(
-            child: _buildProductGrid(),
-          ),
-        ],
+      body: AnimatedOpacity(
+        opacity: _contentOpacity,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeIn,
+        child: Column(
+          children: [
+            _buildSearchBar(),
+            _buildCategoryChips(),
+            Expanded(
+              child: _buildProductGrid(),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentNavIndex,
@@ -251,105 +303,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
             icon: Icon(Icons.receipt_long_outlined),
             activeIcon: Icon(Icons.receipt_long),
             label: 'Orders',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ProductDetailScreen extends StatelessWidget {
-  final String productId;
-  final String title;
-  final String artisanName;
-  final double price;
-  final String imageUrl;
-
-  const ProductDetailScreen({
-    super.key,
-    required this.productId,
-    required this.title,
-    required this.artisanName,
-    required this.price,
-    required this.imageUrl,
-  });
-
-  Widget _buildImage(BuildContext context) {
-    if (imageUrl.isEmpty) {
-      return Container(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-        child: Center(
-          child: Icon(
-            Icons.image_outlined,
-            size: 72,
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-          ),
-        ),
-      );
-    }
-
-    return Image.network(
-      imageUrl,
-      width: double.infinity,
-      height: double.infinity,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-        child: Center(
-          child: Icon(
-            Icons.broken_image_outlined,
-            size: 56,
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 280,
-            width: double.infinity,
-            child: Hero(
-              tag: 'product-$productId',
-              child: _buildImage(context),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(AppConstants.defaultPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'By $artisanName',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.65),
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '₹${price.toStringAsFixed(0)}',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
