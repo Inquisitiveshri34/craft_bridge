@@ -54,6 +54,32 @@ class OrderProvider extends ChangeNotifier {
 		}
 	}
 
+	Future<bool> updateOrderStatus(String orderId, String newStatus) async {
+		const Set<String> validStatuses = <String>{
+			'pending',
+			'confirmed',
+			'shipped',
+			'delivered',
+			'cancelled',
+		};
+
+		if (!validStatuses.contains(newStatus)) {
+			_errorMessage = 'Invalid order status: $newStatus';
+			notifyListeners();
+			return false;
+		}
+
+		try {
+			await _firestoreService.updateOrderStatus(orderId, newStatus);
+			_errorMessage = null;
+			return true;
+		} catch (e) {
+			_errorMessage = 'Failed to update order status: $e';
+			notifyListeners();
+			return false;
+		}
+	}
+
 	void clearError() {
 		_errorMessage = null;
 		notifyListeners();
