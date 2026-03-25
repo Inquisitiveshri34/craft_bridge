@@ -25,16 +25,35 @@ class StorageService {
 			SettableMetadata(contentType: 'image/jpeg'),
 		);
 		_uploadProgressController.add(0.0);
-		uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-			if (snapshot.totalBytes <= 0) return;
-			final double progress =
-					snapshot.bytesTransferred / snapshot.totalBytes;
-			_uploadProgressController.add(progress.clamp(0.0, 1.0));
-		});
-		await uploadTask;
-		_uploadProgressController.add(1.0);
-		final String downloadUrl = await ref.getDownloadURL();
-		return downloadUrl;
+		final StreamSubscription<TaskSnapshot> progressSubscription =
+				uploadTask.snapshotEvents.listen(
+			(snapshot) {
+				if (snapshot.totalBytes <= 0) return;
+				final double progress =
+						snapshot.bytesTransferred / snapshot.totalBytes;
+				_uploadProgressController.add(progress.clamp(0.0, 1.0));
+			},
+			onError: (_) {
+				// uploadTask await below handles the actual failure path.
+			},
+		);
+
+		try {
+			final TaskSnapshot snapshot = await uploadTask;
+			_uploadProgressController.add(1.0);
+			return await snapshot.ref.getDownloadURL();
+		} on FirebaseException catch (e) {
+			if (e.code == 'canceled' || e.code == 'object-not-found') {
+				throw FirebaseException(
+					plugin: 'firebase_storage',
+					code: e.code,
+					message: 'Image upload failed. Please choose the image again.',
+				);
+			}
+			rethrow;
+		} finally {
+			await progressSubscription.cancel();
+		}
 	}
 
 	// ── Storage Methods ── implemented in PR27 ───────────────────
@@ -44,7 +63,13 @@ class StorageService {
 		String artisanId,
 		String oldImageUrl,
 	) async {
-		await deleteProductImage(oldImageUrl);
+		try {
+			await deleteProductImage(oldImageUrl);
+		} on FirebaseException catch (e) {
+			if (e.code != 'object-not-found') {
+				rethrow;
+			}
+		}
 		final String newDownloadUrl =
 				await uploadProductImage(newImageFile, artisanId);
 		return newDownloadUrl;

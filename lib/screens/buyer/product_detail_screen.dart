@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -361,31 +362,46 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 	}
 
 	Widget _buildImageSection() {
+		final String imageUrl = widget.product.imageUrl;
+		final bool isRemote =
+				imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+		final String? localPath =
+				isRemote ? null : (imageUrl.startsWith('file://')
+						? Uri.tryParse(imageUrl)?.toFilePath()
+						: imageUrl);
 		return Hero(
 			tag: 'product-${widget.product.id}',
-			child: widget.product.imageUrl.isNotEmpty
-					? Image.network(
-							widget.product.imageUrl,
-							height: 280,
-							width: double.infinity,
-							fit: BoxFit.cover,
-							loadingBuilder: (context, child, loadingProgress) {
-								if (loadingProgress == null) return child;
-								return SizedBox(
+			child: imageUrl.isNotEmpty
+					? isRemote
+							? Image.network(
+									imageUrl,
 									height: 280,
-									child: Center(
-										child: CircularProgressIndicator(
-											strokeWidth: 2,
-											value: loadingProgress.expectedTotalBytes != null
-													? loadingProgress.cumulativeBytesLoaded /
-															loadingProgress.expectedTotalBytes!
-													: null,
-										),
-									),
-								);
-							},
-							errorBuilder: (_, __, ___) => _buildImageFallback(),
-						)
+									width: double.infinity,
+									fit: BoxFit.cover,
+									loadingBuilder: (context, child, loadingProgress) {
+										if (loadingProgress == null) return child;
+										return SizedBox(
+											height: 280,
+											child: Center(
+												child: CircularProgressIndicator(
+													strokeWidth: 2,
+													value: loadingProgress.expectedTotalBytes != null
+															? loadingProgress.cumulativeBytesLoaded /
+																	loadingProgress.expectedTotalBytes!
+															: null,
+												),
+											),
+										);
+									},
+									errorBuilder: (_, __, ___) => _buildImageFallback(),
+								)
+							: Image.file(
+									File(localPath ?? imageUrl),
+									height: 280,
+									width: double.infinity,
+									fit: BoxFit.cover,
+									errorBuilder: (_, __, ___) => _buildImageFallback(),
+								)
 					: _buildImageFallback(),
 		);
 	}

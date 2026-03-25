@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
@@ -96,6 +98,42 @@ class OrderCard extends StatelessWidget {
 		);
 	}
 
+	bool _isRemoteUrl(String value) {
+		return value.startsWith('http://') || value.startsWith('https://');
+	}
+
+	String? _localPathFromImageRef(String value) {
+		if (value.isEmpty || _isRemoteUrl(value)) return null;
+		if (value.startsWith('file://')) {
+			return Uri.tryParse(value)?.toFilePath();
+		}
+		return value;
+	}
+
+	Widget _buildProductImage(BuildContext context) {
+		if (productImageUrl.isEmpty) return _buildImageFallback(context);
+
+		if (!_isRemoteUrl(productImageUrl)) {
+			final String? localPath = _localPathFromImageRef(productImageUrl);
+			if (localPath == null) return _buildImageFallback(context);
+			final File file = File(localPath);
+			if (file.existsSync()) {
+				return Image.file(
+					file,
+					fit: BoxFit.cover,
+					errorBuilder: (_, __, ___) => _buildImageFallback(context),
+				);
+			}
+			return _buildImageFallback(context);
+		}
+
+		return Image.network(
+			productImageUrl,
+			fit: BoxFit.cover,
+			errorBuilder: (_, __, ___) => _buildImageFallback(context),
+		);
+	}
+
 	@override
 	Widget build(BuildContext context) {
 		return Card(
@@ -112,14 +150,7 @@ class OrderCard extends StatelessWidget {
 								child: SizedBox(
 									width: 64,
 									height: 64,
-									child: productImageUrl.isNotEmpty
-											? Image.network(
-													productImageUrl,
-													fit: BoxFit.cover,
-													errorBuilder: (_, __, ___) =>
-															_buildImageFallback(context),
-												)
-											: _buildImageFallback(context),
+									child: _buildProductImage(context),
 								),
 							),
 							const SizedBox(width: 12),

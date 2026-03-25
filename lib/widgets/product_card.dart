@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 
@@ -36,6 +38,58 @@ class ProductCard extends StatelessWidget {
 		);
 	}
 
+	bool _isRemoteUrl(String value) {
+		return value.startsWith('http://') || value.startsWith('https://');
+	}
+
+	String? _localPathFromImageRef(String value) {
+		if (value.isEmpty || _isRemoteUrl(value)) return null;
+		if (value.startsWith('file://')) {
+			return Uri.tryParse(value)?.toFilePath();
+		}
+		return value;
+	}
+
+	Widget _buildProductImage(BuildContext context) {
+		if (imageUrl.isEmpty) {
+			return _buildImageFallback(context);
+		}
+
+		if (!_isRemoteUrl(imageUrl)) {
+			final String? localPath = _localPathFromImageRef(imageUrl);
+			if (localPath == null) return _buildImageFallback(context);
+			final File file = File(localPath);
+			if (file.existsSync()) {
+				return Image.file(
+					file,
+					width: double.infinity,
+					fit: BoxFit.cover,
+					errorBuilder: (_, __, ___) => _buildImageFallback(context),
+				);
+			}
+			return _buildImageFallback(context);
+		}
+
+		return Image.network(
+			imageUrl,
+			width: double.infinity,
+			fit: BoxFit.cover,
+			loadingBuilder: (context, child, loadingProgress) {
+				if (loadingProgress == null) return child;
+				return Center(
+					child: CircularProgressIndicator(
+						strokeWidth: 2,
+						value: loadingProgress.expectedTotalBytes != null
+								? loadingProgress.cumulativeBytesLoaded /
+										loadingProgress.expectedTotalBytes!
+								: null,
+					),
+				);
+			},
+			errorBuilder: (context, error, stackTrace) => _buildImageFallback(context),
+		);
+	}
+
 	@override
 	Widget build(BuildContext context) {
 		return LayoutBuilder(
@@ -65,27 +119,7 @@ class ProductCard extends StatelessWidget {
 														top: Radius.circular(12),
 													),
 													child: imageUrl.isNotEmpty
-														? Image.network(
-																imageUrl,
-																width: double.infinity,
-																fit: BoxFit.cover,
-																loadingBuilder:
-																		(context, child, loadingProgress) {
-																	if (loadingProgress == null) return child;
-																	return Center(
-																		child: CircularProgressIndicator(
-																			strokeWidth: 2,
-																			value: loadingProgress.expectedTotalBytes !=
-																					null
-																			? loadingProgress.cumulativeBytesLoaded /
-																					loadingProgress.expectedTotalBytes!
-																			: null,
-																		),
-																	);
-																},
-																errorBuilder: (context, error, stackTrace) =>
-																		_buildImageFallback(context),
-														  )
+														? _buildProductImage(context)
 														: _buildImageFallback(context),
 												),
 											),
