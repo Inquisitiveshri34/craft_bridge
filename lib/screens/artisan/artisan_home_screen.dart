@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:craft_bridge/core/theme/app_theme.dart';
 import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
+import 'package:craft_bridge/screens/artisan/artisan_orders_screen.dart';
 import 'package:craft_bridge/screens/artisan/manage_products_screen.dart';
 
 class ArtisanHomeScreen extends StatelessWidget {
@@ -99,7 +100,7 @@ class ArtisanHomeScreen extends StatelessWidget {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const _ArtisanOrdersFallbackScreen(),
+                              builder: (_) => const ArtisanOrdersScreen(),
                             ),
                           ),
                         ),
@@ -128,7 +129,7 @@ class ArtisanHomeScreen extends StatelessWidget {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const _ArtisanOrdersFallbackScreen(),
+                            builder: (_) => const ArtisanOrdersScreen(),
                           ),
                         ),
                       ),
@@ -214,20 +215,6 @@ class _NavCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ArtisanOrdersFallbackScreen extends StatelessWidget {
-  const _ArtisanOrdersFallbackScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Orders')),
-      body: const Center(
-        child: Text('ArtisanOrdersScreen — implemented in PR30'),
       ),
     );
   }
