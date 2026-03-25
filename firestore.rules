@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ─────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    function isApprovedArtisan() {
+      return isAuthenticated() &&
+             getUserData().role == 'artisan' &&
+             getUserData().isApproved == true;
+    }
+
+    function isBuyer() {
+      return isAuthenticated() && getUserData().role == 'buyer';
+    }
+
+    // ── Users Collection ─────────────────────────────────────
+
+    match /users/{uid} {
+      // Users can read their own document; admins can read all
+      allow read: if isAuthenticated() && (isOwner(uid) || isAdmin());
+
+      // Users can create their own document on registration
+      allow create: if isAuthenticated() && isOwner(uid);
+
+      // Users can update their own document; admins can update any
+      allow update: if isAuthenticated() && (isOwner(uid) || isAdmin());
+
+      // Only admins can delete user documents
+      allow delete: if isAdmin();
+    }
+
+    // ── Products Collection ───────────────────────────────────
+
+    match /products/{productId} {
+      // Any authenticated user can read products
+      // (isActive filtering is done in the Flutter query, not rules)
+      allow read: if isAuthenticated();
+
+      // Only approved artisans can create products
+      // artisanId in the document must match the authenticated user
+      allow create: if isApprovedArtisan() &&
+                       request.resource.data.artisanId == request.auth.uid;
+
+      // Only the owning artisan can update their products
+      allow update: if isApprovedArtisan() &&
+                       resource.data.artisanId == request.auth.uid;
+
+      // Only the owning artisan or admin can delete
+      allow delete: if (isApprovedArtisan() &&
+                        resource.data.artisanId == request.auth.uid) ||
+                       isAdmin();
+    }
+
+    // ── Orders Collection ─────────────────────────────────────
+
+    match /orders/{orderId} {
+      // Buyers can read their own orders
+      // Artisans can read orders for their products
+      // Admins can read all orders
+      allow read: if isAuthenticated() && (
+        (isBuyer() && resource.data.buyerId == request.auth.uid) ||
+        (isApprovedArtisan() && resource.data.artisanId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      // Only buyers can create orders
+      // buyerId in the document must match the authenticated user
+      allow create: if isBuyer() &&
+                       request.resource.data.buyerId == request.auth.uid;
+
+      // Artisans can update order status only
+      // Admins can update any field
+      allow update: if (isApprovedArtisan() &&
+                        resource.data.artisanId == request.auth.uid &&
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['status'])) ||
+                       isAdmin();
+
+      // No one can delete orders in the MVP
+      allow delete: if false;
+    }
+
+    // ── Reviews Collection ────────────────────────────────────
+
+    match /reviews/{reviewId} {
+      // Any authenticated user can read reviews
+      allow read: if isAuthenticated();
+
+      // Only buyers can create reviews
+      // buyerId must match the authenticated user
+      allow create: if isBuyer() &&
+                       request.resource.data.buyerId == request.auth.uid;
+
+      // Buyers can update or delete only their own reviews
+      allow update: if isBuyer() &&
+                       resource.data.buyerId == request.auth.uid;
+
+      allow delete: if isBuyer() &&
+                       resource.data.buyerId == request.auth.uid;
+    }
+
+  }
+}
