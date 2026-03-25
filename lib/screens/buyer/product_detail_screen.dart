@@ -1,15 +1,21 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/models/cart_item_model.dart';
 import 'package:craft_bridge/models/product_model.dart';
+import 'package:craft_bridge/models/review_model.dart';
 import 'package:craft_bridge/models/user_model.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
+import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/providers/cart_provider.dart';
 import 'package:craft_bridge/screens/buyer/cart_screen.dart';
 import 'package:craft_bridge/services/firestore_service.dart';
 import 'package:craft_bridge/widgets/custom_button.dart';
+import 'package:craft_bridge/widgets/custom_text_field.dart';
 
 class ProductDetailScreen extends StatefulWidget {
 	final ProductModel product;
@@ -26,6 +32,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 	Position? _buyerPosition;
 	bool _isLoadingLocation = false;
 	final FirestoreService _firestoreService = FirestoreService();
+	List<ReviewModel> _reviews = [];
+	bool _isLoadingReviews = false;
+	bool _isSubmittingReview = false;
+	StreamSubscription<List<ReviewModel>>? _reviewsSubscription;
 	late final Future<LatLng> _artisanLocationFuture;
 
 	@override
@@ -33,6 +43,321 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 		super.initState();
 		_artisanLocationFuture = _loadArtisanLocation();
 		_fetchBuyerLocation();
+		_listenToReviews();
+	}
+
+	@override
+	void dispose() {
+		_reviewsSubscription?.cancel();
+		super.dispose();
+	}
+
+	void _listenToReviews() {
+		setState(() => _isLoadingReviews = true);
+		_reviewsSubscription = _firestoreService
+				.getReviewsByProduct(widget.product.id)
+				.listen(
+			(reviews) {
+				if (!mounted) return;
+				setState(() {
+					_reviews = reviews;
+					_isLoadingReviews = false;
+				});
+			},
+			onError: (_) {
+				if (!mounted) return;
+				setState(() => _isLoadingReviews = false);
+			},
+		);
+	}
+
+	void _showReviewBottomSheet() {
+		int selectedRating = 0;
+		bool showRatingError = false;
+		final TextEditingController commentController = TextEditingController();
+		final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+		showModalBottomSheet<void>(
+			context: context,
+			isScrollControlled: true,
+			shape: const RoundedRectangleBorder(
+				borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+			),
+			builder: (ctx) {
+				return StatefulBuilder(
+					builder: (ctx, setSheetState) {
+						return Padding(
+							padding: EdgeInsets.only(
+								left: 16,
+								right: 16,
+								top: 16,
+								bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+							),
+							child: Form(
+								key: formKey,
+								child: Column(
+									mainAxisSize: MainAxisSize.min,
+									crossAxisAlignment: CrossAxisAlignment.start,
+									children: [
+										Text(
+											'Write a Review',
+											style: Theme.of(context)
+													.textTheme
+													.titleMedium
+													?.copyWith(fontWeight: FontWeight.bold),
+										),
+										const SizedBox(height: 4),
+										Text(
+											widget.product.title,
+											style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+															color: Theme.of(context)
+																	.colorScheme
+																	.onSurface
+																	.withValues(alpha: 0.6),
+														),
+										),
+										const SizedBox(height: 16),
+										Text(
+											'Your Rating',
+											style: Theme.of(context)
+													.textTheme
+													.titleSmall
+													?.copyWith(fontWeight: FontWeight.w600),
+										),
+										const SizedBox(height: 8),
+										Row(
+											children: List.generate(5, (index) {
+												final int star = index + 1;
+												return IconButton(
+													onPressed: () {
+														setSheetState(() {
+															selectedRating = star;
+															showRatingError = false;
+														});
+													},
+													padding: const EdgeInsets.symmetric(horizontal: 2),
+													constraints: const BoxConstraints(),
+													icon: Icon(
+														star <= selectedRating
+																? Icons.star_rounded
+																: Icons.star_outline_rounded,
+														color: star <= selectedRating
+																? Colors.amber.shade600
+																: Theme.of(context)
+																		.colorScheme
+																		.onSurface
+																		.withValues(alpha: 0.3),
+														size: 34,
+													),
+												);
+											}),
+										),
+										if (showRatingError)
+											Padding(
+												padding: const EdgeInsets.only(top: 4),
+												child: Text(
+													'Please select a rating.',
+													style: TextStyle(
+														color: Theme.of(context).colorScheme.error,
+														fontSize: 12,
+													),
+												),
+											),
+										const SizedBox(height: 16),
+										CustomTextField(
+											label: 'Your Review',
+											hint: 'Share your experience with this product...',
+											controller: commentController,
+											maxLines: 3,
+											textCapitalization: TextCapitalization.sentences,
+											validator: (value) {
+												if (value == null || value.trim().isEmpty) {
+													return 'Please write a review.';
+												}
+												if (value.trim().length < 10) {
+													return 'Review must be at least 10 characters.';
+												}
+												return null;
+											},
+										),
+										const SizedBox(height: 20),
+										SizedBox(
+											width: double.infinity,
+											child: ElevatedButton(
+												onPressed: _isSubmittingReview
+													? null
+													: () async {
+														if (selectedRating == 0) {
+															setSheetState(() => showRatingError = true);
+															return;
+														}
+														if (!formKey.currentState!.validate()) {
+															return;
+														}
+
+														final AuthProvider authProvider =
+																context.read<AuthProvider>();
+														final ScaffoldMessengerState messenger =
+																ScaffoldMessenger.of(context);
+														final NavigatorState navigator = Navigator.of(context);
+														final String? buyerId = authProvider.currentUser?.uid;
+														if (buyerId == null || buyerId.isEmpty) {
+															if (!mounted) return;
+															messenger.showSnackBar(
+																const SnackBar(
+																	content: Text('Please sign in to submit a review.'),
+																),
+															);
+															return;
+														}
+
+														setState(() => _isSubmittingReview = true);
+														setSheetState(() {});
+														try {
+															final String reviewId = FirebaseFirestore.instance
+																	.collection(AppConstants.reviewsCollection)
+																	.doc()
+																	.id;
+															final ReviewModel review = ReviewModel(
+																id: reviewId,
+																productId: widget.product.id,
+																buyerId: buyerId,
+																buyerName: authProvider.currentUser?.displayName ?? '',
+																rating: selectedRating.toDouble(),
+																comment: commentController.text.trim(),
+																createdAt: Timestamp.now(),
+															);
+															await _firestoreService.addReview(review);
+															if (!mounted) return;
+															setState(() => _isSubmittingReview = false);
+															navigator.pop();
+															messenger.showSnackBar(
+																const SnackBar(
+																	content: Text('Review submitted. Thank you!'),
+																),
+															);
+														} catch (e) {
+															if (!mounted) return;
+															setState(() => _isSubmittingReview = false);
+															setSheetState(() {});
+															messenger.showSnackBar(
+																SnackBar(content: Text('Failed to submit review: $e')),
+															);
+														}
+													},
+												child: _isSubmittingReview
+														? const SizedBox(
+															height: 20,
+															width: 20,
+															child: CircularProgressIndicator(
+																strokeWidth: 2,
+																color: Colors.white,
+															),
+														)
+														: const Text('Submit Review'),
+											),
+										),
+										const SizedBox(height: 8),
+									],
+								),
+							),
+						);
+					},
+				);
+			},
+		).whenComplete(commentController.dispose);
+	}
+
+	Widget _buildReviewsSection() {
+		final bool isBuyer =
+				context.read<AuthProvider>().currentUser?.role == AppConstants.roleBuyer;
+		final double averageRating = _reviews.isEmpty
+				? 0
+				: _reviews.fold(0.0, (total, review) => total + review.rating) /
+						_reviews.length;
+
+		return Column(
+			crossAxisAlignment: CrossAxisAlignment.start,
+			children: [
+				const Divider(height: 32),
+				Row(
+					mainAxisAlignment: MainAxisAlignment.spaceBetween,
+					children: [
+						Column(
+							crossAxisAlignment: CrossAxisAlignment.start,
+							children: [
+								Text(
+									'Reviews',
+									style: Theme.of(context)
+											.textTheme
+											.titleMedium
+											?.copyWith(fontWeight: FontWeight.bold),
+								),
+								if (_reviews.isNotEmpty)
+									Row(
+										children: [
+											Icon(
+												Icons.star_rounded,
+												color: Colors.amber.shade600,
+												size: 16,
+											),
+											const SizedBox(width: 2),
+											Text(
+												'${averageRating.toStringAsFixed(1)} (${_reviews.length})',
+												style: Theme.of(context)
+														.textTheme
+														.bodySmall
+														?.copyWith(
+															color: Theme.of(context)
+																	.colorScheme
+																	.onSurface
+																	.withValues(alpha: 0.7),
+														),
+											),
+										],
+									),
+							],
+						),
+						if (isBuyer)
+							TextButton.icon(
+								onPressed: _showReviewBottomSheet,
+								icon: const Icon(Icons.rate_review_outlined, size: 18),
+								label: const Text('Write a Review'),
+							),
+					],
+				),
+				const SizedBox(height: 12),
+				if (_isLoadingReviews)
+					const Center(
+						child: CircularProgressIndicator(strokeWidth: 2),
+					)
+				else if (_reviews.isEmpty)
+					Center(
+						child: Padding(
+							padding: const EdgeInsets.symmetric(vertical: 16),
+							child: Text(
+								'No reviews yet. Be the first to review!',
+								style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+										color: Theme.of(context)
+												.colorScheme
+												.onSurface
+												.withValues(alpha: 0.5),
+								),
+							),
+						),
+					)
+				else
+					ListView.separated(
+						shrinkWrap: true,
+						physics: const NeverScrollableScrollPhysics(),
+						itemCount: _reviews.length,
+						separatorBuilder: (_, __) => const Divider(height: 16),
+						itemBuilder: (context, index) {
+							return _ReviewCard(review: _reviews[index]);
+						},
+					),
+			],
+		);
 	}
 
 	Widget _buildImageSection() {
@@ -514,6 +839,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 									const Divider(height: 32),
 									_buildQuantitySelector(),
 									_buildMapSection(),
+									_buildReviewsSection(),
 									const SizedBox(height: 16),
 									CustomButton(
 										label: 'Add to Cart',
@@ -529,6 +855,56 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 					],
 				),
 			),
+		);
+	}
+}
+
+class _ReviewCard extends StatelessWidget {
+	final ReviewModel review;
+
+	const _ReviewCard({required this.review});
+
+	@override
+	Widget build(BuildContext context) {
+		return Column(
+			crossAxisAlignment: CrossAxisAlignment.start,
+			children: [
+				Row(
+					mainAxisAlignment: MainAxisAlignment.spaceBetween,
+					children: [
+						Expanded(
+							child: Text(
+								review.buyerName,
+								style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+										fontWeight: FontWeight.w600,
+								),
+							),
+						),
+						const SizedBox(width: 8),
+						Row(
+							children: List.generate(5, (index) {
+								return Icon(
+									index < review.rating.round()
+											? Icons.star_rounded
+											: Icons.star_outline_rounded,
+									color: Colors.amber.shade600,
+									size: 16,
+								);
+							}),
+						),
+					],
+				),
+				const SizedBox(height: 4),
+				Text(
+					review.comment,
+					style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+							color: Theme.of(context)
+									.colorScheme
+									.onSurface
+									.withValues(alpha: 0.8),
+					),
+				),
+			],
 		);
 	}
 }
