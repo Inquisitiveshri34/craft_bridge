@@ -33,25 +33,37 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _init() {
-    _authSubscription =
-        _auth.authStateChanges().listen((User? firebaseUser) async {
-      if (firebaseUser == null) {
-        _currentUser = null;
-        _isInitialized = true;
-        notifyListeners();
-      } else {
-        try {
-          _currentUser = await _firestoreService.getUser(firebaseUser.uid);
-          await initNotifications();
-          _isInitialized = true;
-          notifyListeners();
-        } catch (e) {
+    _authSubscription = _auth.authStateChanges().listen(
+      (User? firebaseUser) async {
+        if (firebaseUser == null) {
           _currentUser = null;
           _isInitialized = true;
           notifyListeners();
+          return;
         }
-      }
-    });
+
+        try {
+          _currentUser = await _firestoreService
+              .getUser(firebaseUser.uid)
+              .timeout(const Duration(seconds: 10));
+        } catch (e) {
+          debugPrint('Auth bootstrap failed: $e');
+          _currentUser = null;
+        } finally {
+          _isInitialized = true;
+          notifyListeners();
+        }
+
+        // Notification setup should not block initial routing from splash.
+        unawaited(initNotifications());
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('Auth state stream error: $error');
+        _currentUser = null;
+        _isInitialized = true;
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> initNotifications() async {
