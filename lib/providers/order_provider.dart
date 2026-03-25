@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:craft_bridge/models/order_model.dart';
@@ -8,15 +10,22 @@ class OrderProvider extends ChangeNotifier {
 	final FirestoreService _firestoreService = FirestoreService();
 
 	List<OrderModel> _artisanOrders = <OrderModel>[];
+	List<OrderModel> _buyerOrders = <OrderModel>[];
 	bool _isLoading = false;
 	String? _errorMessage;
+	StreamSubscription<List<OrderModel>>? _buyerOrdersSubscription;
 
 	List<OrderModel> get artisanOrders => List<OrderModel>.unmodifiable(_artisanOrders);
+	List<OrderModel> get buyerOrders => List<OrderModel>.unmodifiable(_buyerOrders);
 	bool get isLoading => _isLoading;
 	String? get errorMessage => _errorMessage;
 
 	Stream<List<OrderModel>> watchOrdersForArtisan(String artisanId) {
 		return _firestoreService.getOrdersByArtisan(artisanId);
+	}
+
+	Stream<List<OrderModel>> watchOrdersForBuyer(String buyerId) {
+		return _firestoreService.getOrdersByBuyer(buyerId);
 	}
 
 	Future<void> fetchOrdersForArtisan(String artisanId) async {
@@ -35,6 +44,42 @@ class OrderProvider extends ChangeNotifier {
 			_isLoading = false;
 			notifyListeners();
 		}
+	}
+
+	Future<void> fetchOrdersForBuyer(String buyerId) async {
+		_isLoading = true;
+		_errorMessage = null;
+		notifyListeners();
+
+		try {
+			_buyerOrders = await _firestoreService.getOrdersByBuyer(buyerId).first;
+		} catch (e) {
+			_errorMessage = 'Failed to load your orders: $e';
+		} finally {
+			_isLoading = false;
+			notifyListeners();
+		}
+	}
+
+	void listenToBuyerOrders(String buyerId) {
+		_buyerOrdersSubscription?.cancel();
+		_isLoading = true;
+		_errorMessage = null;
+		notifyListeners();
+
+		_buyerOrdersSubscription = _firestoreService.getOrdersByBuyer(buyerId).listen(
+			(orderList) {
+				_buyerOrders = orderList;
+				_isLoading = false;
+				_errorMessage = null;
+				notifyListeners();
+			},
+			onError: (Object error) {
+				_errorMessage = 'Failed to load your orders: $error';
+				_isLoading = false;
+				notifyListeners();
+			},
+		);
 	}
 
 	Future<bool> createOrder({
@@ -113,5 +158,11 @@ class OrderProvider extends ChangeNotifier {
 	void clearError() {
 		_errorMessage = null;
 		notifyListeners();
+	}
+
+	@override
+	void dispose() {
+		_buyerOrdersSubscription?.cancel();
+		super.dispose();
 	}
 }

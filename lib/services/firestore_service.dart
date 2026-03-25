@@ -128,15 +128,41 @@ class FirestoreService {
 	// ── Order Stream Methods ── implemented in PR34 ───────────────
 
 	Stream<List<OrderModel>> getOrdersByArtisan(String artisanId) {
-		throw UnimplementedError('getOrdersByArtisan not yet implemented');
+		return _db
+				.collection(AppConstants.ordersCollection)
+				.where('artisanId', isEqualTo: artisanId)
+				.orderBy('createdAt', descending: true)
+				.snapshots()
+				.map(
+					(snapshot) => snapshot.docs
+							.map((doc) => OrderModel.fromMap(doc.data()))
+							.toList(),
+				);
 	}
 
 	Stream<List<OrderModel>> getOrdersByBuyer(String buyerId) {
-		throw UnimplementedError('getOrdersByBuyer not yet implemented');
+		return _db
+				.collection(AppConstants.ordersCollection)
+				.where('buyerId', isEqualTo: buyerId)
+				.orderBy('createdAt', descending: true)
+				.snapshots()
+				.map(
+					(snapshot) => snapshot.docs
+							.map((doc) => OrderModel.fromMap(doc.data()))
+							.toList(),
+				);
 	}
 
 	Stream<List<OrderModel>> getAllOrders() {
-		throw UnimplementedError('getAllOrders not yet implemented');
+		return _db
+				.collection(AppConstants.ordersCollection)
+				.orderBy('createdAt', descending: true)
+				.snapshots()
+				.map(
+					(snapshot) => snapshot.docs
+							.map((doc) => OrderModel.fromMap(doc.data()))
+							.toList(),
+				);
 	}
 
 	// ── Review Methods ── implemented in PR44 ────────────────────
