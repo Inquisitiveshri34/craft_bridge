@@ -32,6 +32,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 	bool _isAddingToCart = false;
 	Position? _buyerPosition;
 	bool _isLoadingLocation = false;
+	String? _locationStatusMessage;
 	final FirestoreService _firestoreService = FirestoreService();
 	List<ReviewModel> _reviews = [];
 	bool _isLoadingReviews = false;
@@ -43,7 +44,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 	void initState() {
 		super.initState();
 		_artisanLocationFuture = _loadArtisanLocation();
-		_fetchBuyerLocation();
 		_listenToReviews();
 	}
 
@@ -629,6 +629,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 									),
 							],
 						),
+						const SizedBox(height: 8),
+						if (_locationStatusMessage != null)
+							Text(
+								_locationStatusMessage!,
+								style: Theme.of(context).textTheme.bodySmall?.copyWith(
+										color: Theme.of(context)
+												.colorScheme
+												.onSurface
+												.withValues(alpha: 0.6),
+								),
+							),
+						if (_buyerPosition == null && !_isLoadingLocation)
+							Align(
+								alignment: Alignment.centerLeft,
+								child: TextButton.icon(
+									onPressed: _fetchBuyerLocation,
+									icon: const Icon(Icons.my_location_outlined, size: 16),
+									label: const Text('Use my location (optional)'),
+								),
+							),
 						const SizedBox(height: 12),
 						ClipRRect(
 							borderRadius: BorderRadius.circular(12),
@@ -658,15 +678,35 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 	}
 
 	Future<void> _fetchBuyerLocation() async {
-		setState(() => _isLoadingLocation = true);
+		if (!mounted) return;
+		setState(() {
+			_isLoadingLocation = true;
+			_locationStatusMessage = null;
+		});
 		try {
+			final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+			if (!serviceEnabled) {
+				if (!mounted) return;
+				setState(() {
+					_isLoadingLocation = false;
+					_locationStatusMessage =
+							'Location is turned off. You can continue without it.';
+				});
+				return;
+			}
+
 			LocationPermission permission = await Geolocator.checkPermission();
 			if (permission == LocationPermission.denied) {
 				permission = await Geolocator.requestPermission();
 			}
 			if (permission == LocationPermission.denied ||
 					permission == LocationPermission.deniedForever) {
-				setState(() => _isLoadingLocation = false);
+				if (!mounted) return;
+				setState(() {
+					_isLoadingLocation = false;
+					_locationStatusMessage =
+							'Location not shared. Distance is hidden, but shopping continues normally.';
+				});
 				return;
 			}
 
@@ -680,10 +720,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 			setState(() {
 				_buyerPosition = position;
 				_isLoadingLocation = false;
+				_locationStatusMessage = null;
 			});
 		} catch (_) {
 			if (!mounted) return;
-			setState(() => _isLoadingLocation = false);
+			setState(() {
+				_isLoadingLocation = false;
+				_locationStatusMessage =
+						'Could not get location. You can continue without it.';
+			});
 		}
 	}
 

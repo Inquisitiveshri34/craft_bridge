@@ -48,7 +48,45 @@ class AuthProvider extends ChangeNotifier {
               .timeout(const Duration(seconds: 10));
         } catch (e) {
           debugPrint('Auth bootstrap failed: $e');
-          _currentUser = null;
+          try {
+            final DocumentSnapshot cachedDoc = await FirebaseFirestore.instance
+                .collection(AppConstants.usersCollection)
+                .doc(firebaseUser.uid)
+                .get(const GetOptions(source: Source.cache));
+
+            if (cachedDoc.exists) {
+              _currentUser = UserModel.fromMap(
+                cachedDoc.data() as Map<String, dynamic>,
+              );
+            } else if (_currentUser?.uid == firebaseUser.uid) {
+              // Keep previously resolved user instead of dropping the session.
+            } else {
+              _currentUser = UserModel(
+                uid: firebaseUser.uid,
+                email: firebaseUser.email ?? '',
+                displayName: firebaseUser.displayName ?? 'User',
+                role: AppConstants.roleBuyer,
+                photoUrl: firebaseUser.photoURL ?? '',
+                bio: '',
+                isApproved: true,
+                createdAt: Timestamp.now(),
+              );
+            }
+          } catch (cacheError) {
+            debugPrint('Auth cache fallback failed: $cacheError');
+            if (_currentUser?.uid != firebaseUser.uid) {
+              _currentUser = UserModel(
+                uid: firebaseUser.uid,
+                email: firebaseUser.email ?? '',
+                displayName: firebaseUser.displayName ?? 'User',
+                role: AppConstants.roleBuyer,
+                photoUrl: firebaseUser.photoURL ?? '',
+                bio: '',
+                isApproved: true,
+                createdAt: Timestamp.now(),
+              );
+            }
+          }
         } finally {
           _isInitialized = true;
           notifyListeners();
