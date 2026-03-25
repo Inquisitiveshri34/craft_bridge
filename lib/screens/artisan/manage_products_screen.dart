@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
+import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
 import 'package:craft_bridge/screens/artisan/add_edit_product_screen.dart';
 import 'package:craft_bridge/widgets/order_card.dart';
@@ -16,10 +17,18 @@ class ManageProductsScreen extends StatefulWidget {
 
 class _ManageProductsScreenState extends State<ManageProductsScreen> {
 	bool _cardsVisible = false;
+	String? _artisanId;
 
 	@override
 	void initState() {
 		super.initState();
+		WidgetsBinding.instance.addPostFrameCallback((_) {
+			final String? artisanId = context.read<AuthProvider>().currentUser?.uid;
+			if (artisanId != null && artisanId.isNotEmpty) {
+				_artisanId = artisanId;
+				context.read<ProductProvider>().listenToArtisanProducts(artisanId);
+			}
+		});
 		Future.delayed(const Duration(milliseconds: 80), () {
 			if (mounted) {
 				setState(() => _cardsVisible = true);
@@ -28,7 +37,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 	}
 
 	Future<void> _handleDelete(String productId) async {
-		await context.read<ProductProvider>().removeProduct(productId);
+		await context.read<ProductProvider>().deleteProduct(productId);
 		if (!mounted) return;
 		ScaffoldMessenger.of(context).showSnackBar(
 			const SnackBar(
@@ -126,7 +135,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 	@override
 	Widget build(BuildContext context) {
 		final ProductProvider productProvider = context.watch<ProductProvider>();
-		final List<Map<String, dynamic>> products = productProvider.products;
+		final List<Map<String, dynamic>> products = productProvider.artisanProducts;
 
 		return Scaffold(
 			backgroundColor: Theme.of(context).colorScheme.surface,
@@ -151,7 +160,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 								message: productProvider.errorMessage!,
 								onRetry: () {
 									productProvider.clearError();
-									productProvider.listenToProducts();
+									if (_artisanId != null && _artisanId!.isNotEmpty) {
+										productProvider.listenToArtisanProducts(_artisanId!);
+									}
 								},
 							)
 						: products.isEmpty

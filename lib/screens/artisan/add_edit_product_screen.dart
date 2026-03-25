@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/models/product_model.dart';
+import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
 import 'package:craft_bridge/widgets/custom_button.dart';
 import 'package:craft_bridge/widgets/custom_text_field.dart';
@@ -115,14 +116,27 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 			if (!mounted) return;
 
 			final ProductProvider productProvider = context.read<ProductProvider>();
+			final AuthProvider authProvider = context.read<AuthProvider>();
 
 			final String trimmedTitle = _titleController.text.trim();
 			final String trimmedDescription = _descriptionController.text.trim();
 			final double price = double.parse(_priceController.text.trim());
 			final int stock = int.parse(_stockController.text.trim());
+			final String artisanId = _isEditMode
+					? widget.product!.artisanId
+					: (authProvider.currentUser?.uid ?? '');
+			final String artisanName = _isEditMode
+					? widget.product!.artisanName
+					: (authProvider.currentUser?.displayName ?? '');
+
+			if (artisanId.isEmpty || artisanName.isEmpty) {
+				throw Exception('Unable to resolve artisan profile for product save.');
+			}
 
 			final ProductModel model = _isEditMode
 					? widget.product!.copyWith(
+							artisanId: artisanId,
+							artisanName: artisanName,
 							title: trimmedTitle,
 							description: trimmedDescription,
 							price: price,
@@ -133,8 +147,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 						)
 					: ProductModel(
 							id: '',
-							artisanId: '',
-							artisanName: '',
+							artisanId: artisanId,
+							artisanName: artisanName,
 							title: trimmedTitle,
 							description: trimmedDescription,
 							price: price,
@@ -145,7 +159,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 							createdAt: Timestamp.now(),
 						);
 
-			await productProvider.addOrUpdateProduct(model: model, isEdit: _isEditMode);
+			final bool success = _isEditMode
+					? await productProvider.updateProduct(model)
+					: await productProvider.addProduct(model);
+
+			if (!success) {
+				throw Exception(productProvider.errorMessage ?? 'Unable to save product.');
+			}
 			if (!mounted) return;
 			setState(() {
 				_isLoading = false;
