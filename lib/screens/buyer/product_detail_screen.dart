@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:craft_bridge/models/cart_item_model.dart';
 import 'package:craft_bridge/models/product_model.dart';
 import 'package:craft_bridge/models/user_model.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
+import 'package:craft_bridge/providers/cart_provider.dart';
+import 'package:craft_bridge/screens/buyer/cart_screen.dart';
 import 'package:craft_bridge/services/firestore_service.dart';
 import 'package:craft_bridge/widgets/custom_button.dart';
 
@@ -358,13 +362,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 	}
 
 	Future<void> _handleAddToCart() async {
+		final CartItemModel cartItem = CartItemModel(
+			productId: widget.product.id,
+			title: widget.product.title,
+			imageUrl: widget.product.imageUrl,
+			price: widget.product.price,
+			quantity: _quantity,
+			artisanId: widget.product.artisanId,
+			artisanName: widget.product.artisanName,
+		);
 		setState(() => _isAddingToCart = true);
-		await Future.delayed(const Duration(milliseconds: 300));
+		await Future.delayed(const Duration(milliseconds: 200));
 		setState(() => _isAddingToCart = false);
 		if (!mounted) return;
+		context.read<CartProvider>().addItem(cartItem);
 		ScaffoldMessenger.of(context).showSnackBar(
 			SnackBar(
-				content: Text('${widget.product.title} added to cart — wired in PR42.'),
+				content: Text('${widget.product.title} added to cart.'),
+				action: SnackBarAction(
+					label: 'View Cart',
+					onPressed: () => Navigator.push(
+						context,
+						MaterialPageRoute(builder: (_) => const CartScreen()),
+					),
+				),
 			),
 		);
 	}
