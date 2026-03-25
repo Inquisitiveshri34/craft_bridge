@@ -35,6 +35,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 	bool _isUploadingImage = false;
 	bool _isDirty = false;
 	String? _uploadedImageUrl;
+	bool _imageRemoved = false;
 
 	bool get _isEditMode => widget.product != null;
 
@@ -49,9 +50,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 			_stockController.text = product.stock.toString();
 			_selectedCategory = product.category;
 			_isActive = product.isActive;
-			if (product.imageUrl.isNotEmpty && File(product.imageUrl).existsSync()) {
-				_selectedImageFile = File(product.imageUrl);
-			}
+			_uploadedImageUrl = product.imageUrl.isNotEmpty ? product.imageUrl : null;
 		}
 		_addDirtyListeners();
 	}
@@ -84,37 +83,56 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
 	Future<void> _handleSubmit() async {
 		if (!_formKey.currentState!.validate()) return;
-
-		final ProductProvider productProvider = context.read<ProductProvider>();
-		final String? artisanId = context.read<AuthProvider>().currentUser?.uid;
-
 		setState(() => _isLoading = true);
 
-		if (artisanId == null) {
-			setState(() => _isLoading = false);
-			ScaffoldMessenger.of(context).showSnackBar(
-				const SnackBar(content: Text('Error: user not authenticated.')),
-			);
-			return;
-		}
-
 		try {
-			String imageUrl = _uploadedImageUrl ??
-					(_isEditMode ? widget.product!.imageUrl : '');
+			String? imageUrl = _uploadedImageUrl;
+			final String? artisanId = context.read<AuthProvider>().currentUser?.uid;
+			if (artisanId == null) {
+				setState(() {
+					_isLoading = false;
+					_isUploadingImage = false;
+				});
+				if (!mounted) return;
+				ScaffoldMessenger.of(context).showSnackBar(
+					const SnackBar(content: Text('Error: user not authenticated.')),
+				);
+				return;
+			}
 
 			if (_selectedImageFile != null) {
 				setState(() => _isUploadingImage = true);
-
-				imageUrl = await StorageService().uploadProductImage(
-					_selectedImageFile!,
-					artisanId,
-				);
+				if (_isEditMode &&
+						_uploadedImageUrl != null &&
+						_uploadedImageUrl!.isNotEmpty) {
+					imageUrl = await StorageService().updateProductImage(
+						_selectedImageFile!,
+						artisanId,
+						_uploadedImageUrl!,
+					);
+				} else {
+					imageUrl = await StorageService().uploadProductImage(
+						_selectedImageFile!,
+						artisanId,
+					);
+				}
 				if (!mounted) return;
 				setState(() {
 					_uploadedImageUrl = imageUrl;
+					_imageRemoved = false;
 					_isUploadingImage = false;
 				});
+			} else if (_imageRemoved &&
+					_isEditMode &&
+					_uploadedImageUrl != null &&
+					_uploadedImageUrl!.isNotEmpty) {
+				await StorageService().deleteProductImage(_uploadedImageUrl!);
+				imageUrl = '';
+				_uploadedImageUrl = null;
 			}
+			if (!mounted) return;
+
+			final ProductProvider productProvider = context.read<ProductProvider>();
 
 			final String trimmedTitle = _titleController.text.trim();
 			final String trimmedDescription = _descriptionController.text.trim();
@@ -126,7 +144,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 							title: trimmedTitle,
 							description: trimmedDescription,
 							price: price,
-							imageUrl: imageUrl,
+							imageUrl: imageUrl ?? widget.product!.imageUrl,
 							category: _selectedCategory,
 							stock: stock,
 							isActive: _isActive,
@@ -138,7 +156,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 							title: trimmedTitle,
 							description: trimmedDescription,
 							price: price,
-							imageUrl: imageUrl,
+							imageUrl: imageUrl ?? '',
 							category: _selectedCategory!,
 							stock: stock,
 							isActive: _isActive,
@@ -200,6 +218,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 	void _removeImage() {
 		setState(() {
 			_selectedImageFile = null;
+			_imageRemoved = true;
 			_isDirty = true;
 		});
 	}
@@ -262,6 +281,83 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 							textAlign: TextAlign.center,
 						),
 					],
+				],
+			);
+		}
+
+		if (_uploadedImageUrl != null && !_imageRemoved) {
+			return Column(
+				crossAxisAlignment: CrossAxisAlignment.stretch,
+				children: [
+					ClipRRect(
+						borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+						child: Image.network(
+							_uploadedImageUrl!,
+							height: 200,
+							width: double.infinity,
+							fit: BoxFit.cover,
+							loadingBuilder: (context, child, loadingProgress) {
+								if (loadingProgress == null) return child;
+								return SizedBox(
+									height: 200,
+									child: Center(
+										child: CircularProgressIndicator(
+											strokeWidth: 2,
+											value: loadingProgress.expectedTotalBytes != null
+													? loadingProgress.cumulativeBytesLoaded /
+															loadingProgress.expectedTotalBytes!
+													: null,
+										),
+									),
+								);
+							},
+							errorBuilder: (_, __, ___) => Container(
+								height: 200,
+								color: Theme.of(context).colorScheme.primary.withValues(
+									alpha: 0.08,
+								),
+								child: Center(
+									child: Icon(
+										Icons.broken_image_outlined,
+										size: 48,
+										color: Theme.of(context)
+												.colorScheme
+												.primary
+												.withValues(alpha: 0.4),
+									),
+								),
+							),
+						),
+					),
+					const SizedBox(height: 8),
+					Row(
+						children: [
+							Expanded(
+								child: OutlinedButton.icon(
+									onPressed: _pickImage,
+									icon: const Icon(Icons.edit_outlined, size: 16),
+									label: const Text('Change Image'),
+								),
+							),
+							const SizedBox(width: 8),
+							Expanded(
+								child: OutlinedButton.icon(
+									onPressed: _removeImage,
+									icon: Icon(
+										Icons.delete_outline,
+										size: 16,
+										color: Theme.of(context).colorScheme.error,
+									),
+									label: Text(
+										'Remove',
+										style: TextStyle(
+											color: Theme.of(context).colorScheme.error,
+										),
+									),
+								),
+							),
+						],
+					),
 				],
 			);
 		}
