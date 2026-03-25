@@ -200,3 +200,162 @@ class OrderCard extends StatelessWidget {
 		);
 	}
 }
+
+class LoadingWidget extends StatelessWidget {
+	final String? message;
+
+	const LoadingWidget({super.key, this.message});
+
+	@override
+	Widget build(BuildContext context) {
+		return Center(
+			child: Column(
+				mainAxisAlignment: MainAxisAlignment.center,
+				children: [
+					CircularProgressIndicator(
+						color: Theme.of(context).colorScheme.primary,
+					),
+					if (message != null) ...[
+						const SizedBox(height: 16),
+						Text(
+							message!,
+							style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+									color: Theme.of(context)
+											.colorScheme
+											.onSurface
+											.withValues(alpha: 0.6),
+								),
+							textAlign: TextAlign.center,
+						),
+					],
+				],
+			),
+		);
+	}
+}
+
+class EmptyStateWidget extends StatelessWidget {
+	final IconData icon;
+	final String title;
+	final String subtitle;
+	final String? actionLabel;
+	final VoidCallback? onAction;
+
+	const EmptyStateWidget({
+		super.key,
+		required this.icon,
+		required this.title,
+		required this.subtitle,
+		this.actionLabel,
+		this.onAction,
+	});
+
+	@override
+	Widget build(BuildContext context) {
+		return Center(
+			child: Padding(
+				padding: const EdgeInsets.all(32),
+				child: Column(
+					mainAxisAlignment: MainAxisAlignment.center,
+					children: [
+						Icon(
+							icon,
+							size: 80,
+							color: Theme.of(context)
+									.colorScheme
+									.primary
+									.withValues(alpha: 0.3),
+						),
+						const SizedBox(height: 16),
+						Text(
+							title,
+							style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+									fontWeight: FontWeight.bold,
+									color: Theme.of(context)
+											.colorScheme
+											.onSurface
+											.withValues(alpha: 0.6),
+								),
+							textAlign: TextAlign.center,
+						),
+						const SizedBox(height: 8),
+						Text(
+							subtitle,
+							style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+									color: Theme.of(context)
+											.colorScheme
+											.onSurface
+											.withValues(alpha: 0.45),
+								),
+							textAlign: TextAlign.center,
+						),
+						if (actionLabel != null && onAction != null) ...[
+							const SizedBox(height: 24),
+							OutlinedButton(
+								onPressed: onAction,
+								child: Text(actionLabel!),
+							),
+						],
+					],
+				),
+			),
+		);
+	}
+}
+
+class AppErrorWidget extends StatelessWidget {
+	final String message;
+	final VoidCallback? onRetry;
+
+	const AppErrorWidget({
+		super.key,
+		required this.message,
+		this.onRetry,
+	});
+
+	@override
+	Widget build(BuildContext context) {
+		return Center(
+			child: Padding(
+				padding: const EdgeInsets.all(32),
+				child: Column(
+					mainAxisAlignment: MainAxisAlignment.center,
+					children: [
+						Icon(
+							Icons.error_outline,
+							size: 64,
+							color: Theme.of(context).colorScheme.error,
+						),
+						const SizedBox(height: 16),
+						Text(
+							'Something went wrong',
+							style: Theme.of(context)
+									.textTheme
+									.titleMedium
+									?.copyWith(fontWeight: FontWeight.bold),
+						),
+						const SizedBox(height: 8),
+						Text(
+							message,
+							style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+									color: Theme.of(context)
+											.colorScheme
+											.onSurface
+											.withValues(alpha: 0.7),
+								),
+							textAlign: TextAlign.center,
+						),
+						if (onRetry != null) ...[
+							const SizedBox(height: 24),
+							OutlinedButton.icon(
+								onPressed: onRetry,
+								icon: const Icon(Icons.refresh, size: 18),
+								label: const Text('Retry'),
+							),
+						],
+					],
+				),
+			),
+		);
+	}
+}
