@@ -16,7 +16,6 @@ class BuyerHomeScreen extends StatefulWidget {
 
 class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedCategory = 'All';
   int _currentNavIndex = 0;
   double _contentOpacity = 0.0;
 
@@ -41,22 +40,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       },
       transitionDuration: const Duration(milliseconds: 320),
     );
-  }
-
-  List<ProductModel> get _filteredProducts {
-    final List<Map<String, dynamic>> rawProducts =
-        context.read<ProductProvider>().products;
-    final List<ProductModel> allProducts = rawProducts
-        .map((map) => ProductModel.fromMap(map))
-        .toList();
-    final String query = _searchController.text.trim().toLowerCase();
-    return allProducts.where((product) {
-      final bool categoryMatch =
-          _selectedCategory == 'All' || product.category == _selectedCategory;
-      final bool searchMatch = query.isEmpty ||
-          product.title.toLowerCase().contains(query);
-      return categoryMatch && searchMatch;
-    }).toList();
   }
 
   @override
@@ -96,6 +79,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                   icon: const Icon(Icons.clear),
                   onPressed: () {
                     _searchController.clear();
+                    context.read<ProductProvider>().searchProducts('');
                     setState(() {});
                   },
                 )
@@ -107,45 +91,119 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           filled: true,
           fillColor: Theme.of(context).colorScheme.surface,
         ),
-        onChanged: (_) => setState(() {}),
+        onChanged: (value) {
+          context.read<ProductProvider>().searchProducts(value);
+          setState(() {});
+        },
       ),
     );
   }
 
   Widget _buildCategoryChips() {
     final List<String> categories = ['All', ...AppConstants.productCategories];
-    return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppConstants.defaultPadding,
-        ),
-        itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final String category = categories[index];
-          final bool isSelected = _selectedCategory == category;
-          return FilterChip(
-            label: Text(category),
-            selected: isSelected,
-            onSelected: (_) => setState(() => _selectedCategory = category),
-            selectedColor: Theme.of(context).colorScheme.primary,
-            labelStyle: TextStyle(
-              color: isSelected
-                  ? Colors.white
-                  : Theme.of(context).colorScheme.onSurface,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+    return Consumer<ProductProvider>(
+      builder: (context, productProvider, _) {
+        final String selectedCategory = productProvider.filterCategory;
+        return SizedBox(
+          height: 48,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.defaultPadding,
             ),
-            showCheckmark: false,
-            side: BorderSide(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.outline,
-            ),
-          );
-        },
-      ),
+            itemCount: categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final String category = categories[index];
+              final bool isSelected = selectedCategory == category;
+              return FilterChip(
+                label: Text(category),
+                selected: isSelected,
+                onSelected: (_) {
+                  context.read<ProductProvider>().filterByCategory(category);
+                },
+                selectedColor: Theme.of(context).colorScheme.primary,
+                labelStyle: TextStyle(
+                  color: isSelected
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                showCheckmark: false,
+                side: BorderSide(
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.outline,
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSortDropdown() {
+    return Consumer<ProductProvider>(
+      builder: (context, productProvider, _) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppConstants.defaultPadding,
+            8,
+            AppConstants.defaultPadding,
+            8,
+          ),
+          child: Row(
+            children: [
+              Text(
+                'Sort by',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: productProvider.sortField,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.inputBorderRadius,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'createdAt_desc',
+                      child: Text('Newest'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'createdAt_asc',
+                      child: Text('Oldest'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'price_asc',
+                      child: Text('Price: Low to High'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'price_desc',
+                      child: Text('Price: High to Low'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      context.read<ProductProvider>().sortProducts(value);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -184,7 +242,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           );
         }
 
-        final List<ProductModel> products = _filteredProducts;
+        final List<ProductModel> products = productProvider.filteredProducts;
         if (products.isEmpty) {
           return _buildEmptyState();
         }
@@ -276,6 +334,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           children: [
             _buildSearchBar(),
             _buildCategoryChips(),
+            _buildSortDropdown(),
             Expanded(
               child: _buildProductGrid(),
             ),
