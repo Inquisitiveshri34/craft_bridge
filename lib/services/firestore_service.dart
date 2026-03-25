@@ -89,15 +89,24 @@ class FirestoreService {
 	// ── Product Write Methods ── implemented in PR31 ──────────────
 
 	Future<void> addProduct(ProductModel product) async {
-		throw UnimplementedError('addProduct not yet implemented');
+		await _db
+				.collection(AppConstants.productsCollection)
+				.doc(product.id)
+				.set(product.toMap());
 	}
 
 	Future<void> updateProduct(String productId, Map<String, dynamic> data) async {
-		throw UnimplementedError('updateProduct not yet implemented');
+		await _db
+				.collection(AppConstants.productsCollection)
+				.doc(productId)
+				.update(data);
 	}
 
 	Future<void> deleteProduct(String productId) async {
-		throw UnimplementedError('deleteProduct not yet implemented');
+		await _db
+				.collection(AppConstants.productsCollection)
+				.doc(productId)
+				.delete();
 	}
 
 	// ── Order Methods ── implemented in PR33 ─────────────────────
