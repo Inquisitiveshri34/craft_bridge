@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 class CartItemTile extends StatelessWidget {
@@ -31,6 +33,41 @@ class CartItemTile extends StatelessWidget {
 				Icons.image_outlined,
 				color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
 			),
+		);
+	}
+
+	bool _isRemoteUrl(String value) {
+		return value.startsWith('http://') || value.startsWith('https://');
+	}
+
+	String? _localPathFromImageRef(String value) {
+		if (value.isEmpty || _isRemoteUrl(value)) return null;
+		if (value.startsWith('file://')) {
+			return Uri.tryParse(value)?.toFilePath();
+		}
+		return value;
+	}
+
+	Widget _buildProductImage(BuildContext context) {
+		if (imageUrl.isEmpty) return _buildImageFallback(context);
+		if (!_isRemoteUrl(imageUrl)) {
+			final String? localPath = _localPathFromImageRef(imageUrl);
+			if (localPath == null) return _buildImageFallback(context);
+			final File file = File(localPath);
+			if (file.existsSync()) {
+				return Image.file(
+					file,
+					fit: BoxFit.cover,
+					errorBuilder: (_, __, ___) => _buildImageFallback(context),
+				);
+			}
+			return _buildImageFallback(context);
+		}
+
+		return Image.network(
+			imageUrl,
+			fit: BoxFit.cover,
+			errorBuilder: (_, __, ___) => _buildImageFallback(context),
 		);
 	}
 
@@ -112,13 +149,7 @@ class CartItemTile extends StatelessWidget {
 							child: SizedBox(
 								width: 72,
 								height: 72,
-								child: imageUrl.isNotEmpty
-										? Image.network(
-												imageUrl,
-												fit: BoxFit.cover,
-												errorBuilder: (_, __, ___) => _buildImageFallback(context),
-											)
-										: _buildImageFallback(context),
+									child: _buildProductImage(context),
 							),
 						),
 						const SizedBox(width: 12),

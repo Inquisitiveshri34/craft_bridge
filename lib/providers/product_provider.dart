@@ -5,11 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/models/product_model.dart';
 import 'package:craft_bridge/services/firestore_service.dart';
-import 'package:craft_bridge/services/storage_service.dart';
 
 class ProductProvider extends ChangeNotifier {
 	final FirestoreService _firestoreService = FirestoreService();
-	final StorageService _storageService = StorageService();
 	List<ProductModel> _products = [];
 	List<ProductModel> _artisanProducts = [];
 	bool _isLoading = false;
@@ -204,17 +202,7 @@ class ProductProvider extends ChangeNotifier {
 		_errorMessage = null;
 		notifyListeners();
 		try {
-			final ProductModel? existing =
-					_artisanProducts.cast<ProductModel?>().firstWhere(
-							(product) => product?.id == productId,
-							orElse: () => null,
-						);
-			final String imageUrl = existing?.imageUrl ?? '';
-
 			await _firestoreService.deleteProduct(productId);
-			if (imageUrl.isNotEmpty) {
-				await _storageService.deleteProductImage(imageUrl);
-			}
 
 			_artisanProducts.removeWhere((p) => p.id == productId);
 			_products.removeWhere((p) => p.id == productId);

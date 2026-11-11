@@ -4,11 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/core/constants/app_constants.dart';
 import 'package:craft_bridge/models/product_model.dart';
+import 'package:craft_bridge/providers/auth_provider.dart';
 import 'package:craft_bridge/providers/product_provider.dart';
-import 'package:craft_bridge/services/storage_service.dart';
 import 'package:craft_bridge/widgets/custom_button.dart';
 import 'package:craft_bridge/widgets/custom_text_field.dart';
 
@@ -38,6 +37,17 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 	bool _imageRemoved = false;
 
 	bool get _isEditMode => widget.product != null;
+
+	String? _localPathFromImageRef(String value) {
+		if (value.isEmpty) return null;
+		if (value.startsWith('http://') || value.startsWith('https://')) {
+			return null;
+		}
+		if (value.startsWith('file://')) {
+			return Uri.tryParse(value)?.toFilePath();
+		}
+		return value;
+	}
 
 	@override
 	void initState() {
@@ -87,60 +97,46 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
 		try {
 			String? imageUrl = _uploadedImageUrl;
-			final String? artisanId = context.read<AuthProvider>().currentUser?.uid;
-			if (artisanId == null) {
-				setState(() {
-					_isLoading = false;
-					_isUploadingImage = false;
-				});
-				if (!mounted) return;
-				ScaffoldMessenger.of(context).showSnackBar(
-					const SnackBar(content: Text('Error: user not authenticated.')),
-				);
-				return;
-			}
 
 			if (_selectedImageFile != null) {
-				setState(() => _isUploadingImage = true);
-				if (_isEditMode &&
-						_uploadedImageUrl != null &&
-						_uploadedImageUrl!.isNotEmpty) {
-					imageUrl = await StorageService().updateProductImage(
-						_selectedImageFile!,
-						artisanId,
-						_uploadedImageUrl!,
-					);
-				} else {
-					imageUrl = await StorageService().uploadProductImage(
-						_selectedImageFile!,
-						artisanId,
-					);
-				}
+				imageUrl = Uri.file(_selectedImageFile!.path).toString();
+
 				if (!mounted) return;
 				setState(() {
 					_uploadedImageUrl = imageUrl;
 					_imageRemoved = false;
-					_isUploadingImage = false;
 				});
 			} else if (_imageRemoved &&
 					_isEditMode &&
 					_uploadedImageUrl != null &&
 					_uploadedImageUrl!.isNotEmpty) {
-				await StorageService().deleteProductImage(_uploadedImageUrl!);
 				imageUrl = '';
 				_uploadedImageUrl = null;
 			}
 			if (!mounted) return;
 
 			final ProductProvider productProvider = context.read<ProductProvider>();
+			final AuthProvider authProvider = context.read<AuthProvider>();
 
 			final String trimmedTitle = _titleController.text.trim();
 			final String trimmedDescription = _descriptionController.text.trim();
 			final double price = double.parse(_priceController.text.trim());
 			final int stock = int.parse(_stockController.text.trim());
+			final String artisanId = _isEditMode
+					? widget.product!.artisanId
+					: (authProvider.currentUser?.uid ?? '');
+			final String artisanName = _isEditMode
+					? widget.product!.artisanName
+					: (authProvider.currentUser?.displayName ?? '');
+
+			if (artisanId.isEmpty || artisanName.isEmpty) {
+				throw Exception('Unable to resolve artisan profile for product save.');
+			}
 
 			final ProductModel model = _isEditMode
 					? widget.product!.copyWith(
+							artisanId: artisanId,
+							artisanName: artisanName,
 							title: trimmedTitle,
 							description: trimmedDescription,
 							price: price,
@@ -151,8 +147,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 						)
 					: ProductModel(
 							id: '',
-							artisanId: '',
-							artisanName: '',
+							artisanId: artisanId,
+							artisanName: artisanName,
 							title: trimmedTitle,
 							description: trimmedDescription,
 							price: price,
@@ -163,7 +159,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 							createdAt: Timestamp.now(),
 						);
 
-			await productProvider.addOrUpdateProduct(model: model, isEdit: _isEditMode);
+			final bool success = _isEditMode
+					? await productProvider.updateProduct(model)
+					: await productProvider.addProduct(model);
+
+			if (!success) {
+				throw Exception(productProvider.errorMessage ?? 'Unable to save product.');
+			}
 			if (!mounted) return;
 			setState(() {
 				_isLoading = false;
@@ -286,49 +288,44 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 		}
 
 		if (_uploadedImageUrl != null && !_imageRemoved) {
+			final String? localPath = _localPathFromImageRef(_uploadedImageUrl!);
+			final bool isLocalPath = localPath != null;
 			return Column(
 				crossAxisAlignment: CrossAxisAlignment.stretch,
 				children: [
 					ClipRRect(
 						borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
-						child: Image.network(
-							_uploadedImageUrl!,
-							height: 200,
-							width: double.infinity,
-							fit: BoxFit.cover,
-							loadingBuilder: (context, child, loadingProgress) {
-								if (loadingProgress == null) return child;
-								return SizedBox(
-									height: 200,
-									child: Center(
-										child: CircularProgressIndicator(
-											strokeWidth: 2,
-											value: loadingProgress.expectedTotalBytes != null
-													? loadingProgress.cumulativeBytesLoaded /
-															loadingProgress.expectedTotalBytes!
-													: null,
-										),
+						child: isLocalPath
+								? Image.file(
+										File(localPath),
+										height: 200,
+										width: double.infinity,
+										fit: BoxFit.cover,
+										errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
+									)
+								: Image.network(
+										_uploadedImageUrl!,
+										height: 200,
+										width: double.infinity,
+										fit: BoxFit.cover,
+										loadingBuilder: (context, child, loadingProgress) {
+											if (loadingProgress == null) return child;
+											return SizedBox(
+												height: 200,
+												child: Center(
+													child: CircularProgressIndicator(
+														strokeWidth: 2,
+														value: loadingProgress.expectedTotalBytes != null
+																? loadingProgress.cumulativeBytesLoaded /
+																		loadingProgress.expectedTotalBytes!
+																: null,
+													),
+												),
+											);
+										},
+										errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
 									),
-								);
-							},
-							errorBuilder: (_, __, ___) => Container(
-								height: 200,
-								color: Theme.of(context).colorScheme.primary.withValues(
-									alpha: 0.08,
-								),
-								child: Center(
-									child: Icon(
-										Icons.broken_image_outlined,
-										size: 48,
-										color: Theme.of(context)
-												.colorScheme
-												.primary
-												.withValues(alpha: 0.4),
-									),
-								),
-							),
 						),
-					),
 					const SizedBox(height: 8),
 					Row(
 						children: [
@@ -393,6 +390,20 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 								),
 						),
 					],
+				),
+			),
+		);
+	}
+
+	Widget _buildImagePlaceholder() {
+		return Container(
+			height: 200,
+			color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+			child: Center(
+				child: Icon(
+					Icons.broken_image_outlined,
+					size: 48,
+					color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
 				),
 			),
 		);

@@ -1,1 +1,34 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"craftbridge-dc5d7","appId":"1:347893360850:android:e876d75722e634951c650b","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"craftbridge-dc5d7","appId":"1:347893360850:ios:25c34defeade69f21c650b","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"craftbridge-dc5d7","configurations":{"android":"1:347893360850:android:e876d75722e634951c650b","ios":"1:347893360850:ios:25c34defeade69f21c650b"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "craftbridge-dc5d7",
+          "appId": "1:347893360850:android:e876d75722e634951c650b",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "craftbridge-dc5d7",
+          "appId": "1:347893360850:ios:25c34defeade69f21c650b",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "craftbridge-dc5d7",
+          "configurations": {
+            "android": "1:347893360850:android:e876d75722e634951c650b",
+            "ios": "1:347893360850:ios:25c34defeade69f21c650b"
+          }
+        }
+      }
+    }
+  }
+}

@@ -131,12 +131,17 @@ class FirestoreService {
 		return _db
 				.collection(AppConstants.ordersCollection)
 				.where('artisanId', isEqualTo: artisanId)
-				.orderBy('createdAt', descending: true)
 				.snapshots()
 				.map(
-					(snapshot) => snapshot.docs
-							.map((doc) => OrderModel.fromMap(doc.data()))
-							.toList(),
+					(snapshot) {
+						final List<OrderModel> orders = snapshot.docs
+								.map((doc) => OrderModel.fromMap(doc.data()))
+								.toList();
+						orders.sort(
+							(a, b) => b.createdAt.compareTo(a.createdAt),
+						);
+						return orders;
+					},
 				);
 	}
 
@@ -144,12 +149,17 @@ class FirestoreService {
 		return _db
 				.collection(AppConstants.ordersCollection)
 				.where('buyerId', isEqualTo: buyerId)
-				.orderBy('createdAt', descending: true)
 				.snapshots()
 				.map(
-					(snapshot) => snapshot.docs
-							.map((doc) => OrderModel.fromMap(doc.data()))
-							.toList(),
+					(snapshot) {
+						final List<OrderModel> orders = snapshot.docs
+								.map((doc) => OrderModel.fromMap(doc.data()))
+								.toList();
+						orders.sort(
+							(a, b) => b.createdAt.compareTo(a.createdAt),
+						);
+						return orders;
+					},
 				);
 	}
 
